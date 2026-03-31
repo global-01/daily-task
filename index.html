@@ -279,6 +279,39 @@
   .toast.show{opacity:1}
   .empty-state{text-align:center;padding:40px 24px;color:var(--text3)}
 
+
+  /* ── STATS ENHANCED ── */
+  .stat-row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .pri-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .pri-row:last-child{border-bottom:none}
+  .pri-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+  .pri-label{font-size:12px;color:var(--text2);width:52px;flex-shrink:0}
+  .pri-bar-wrap{flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden}
+  .pri-bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+  .pri-pct{font-size:12px;font-weight:600;color:var(--text);width:36px;text-align:right;flex-shrink:0}
+  .pri-cnt{font-size:11px;color:var(--text3);width:50px;text-align:right;flex-shrink:0}
+  .cat-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .cat-row:last-child{border-bottom:none}
+  .cat-name{font-size:12px;color:var(--text);width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+  .cat-bar-wrap{flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden}
+  .cat-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .5s ease}
+  .cat-cnt{font-size:11px;color:var(--text3);width:70px;text-align:right;flex-shrink:0}
+  .carry-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .carry-name{font-size:13px;color:var(--text);flex:1}
+  .carry-cnt{font-size:11px;background:var(--red-soft);color:var(--red);padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap}
+  .wd-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .wd-row:last-child{border-bottom:none}
+  .wd-name{font-size:12px;color:var(--text);width:28px;flex-shrink:0}
+  .wd-bar-wrap{flex:1;background:var(--border);border-radius:4px;height:10px;overflow:hidden}
+  .wd-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .5s ease}
+  .wd-pct{font-size:12px;font-weight:600;color:var(--text);width:36px;text-align:right;flex-shrink:0}
+  .wd-cnt{font-size:11px;color:var(--text3);width:50px;text-align:right;flex-shrink:0}
+  .minutes-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;margin-bottom:10px;cursor:pointer;transition:all .18s}
+  .minutes-card:hover{border-color:var(--accent);box-shadow:var(--shadow2)}
+  .minutes-card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+  .minutes-card-meta{font-size:11px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap}
+  .minutes-card-preview{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
   @media(max-width:700px){
     .stats-row{grid-template-columns:1fr 1fr}
     .sum-grid{grid-template-columns:1fr 1fr}
@@ -420,29 +453,79 @@
 
     <!-- STATS -->
     <div class="view" id="view-stats">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
         <h2 style="font-family:'DM Serif Display',serif;font-size:21px;">통계</h2>
-        <div class="period-tabs">
-          <button class="ptab active" onclick="setPeriod('week',this)">주간</button>
-          <button class="ptab" onclick="setPeriod('month',this)">월간</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <div class="period-tabs">
+            <button class="ptab active" onclick="setPeriod('week',this)">주간</button>
+            <button class="ptab" onclick="setPeriod('month',this)">월간</button>
+          </div>
+          <div class="period-tabs" style="margin-left:8px;">
+            <button class="ptab active" onclick="setStatsTab('overview',this)" id="stab-overview">개요</button>
+            <button class="ptab" onclick="setStatsTab('priority',this)" id="stab-priority">우선순위</button>
+            <button class="ptab" onclick="setStatsTab('category',this)" id="stab-category">카테고리</button>
+            <button class="ptab" onclick="setStatsTab('carry',this)" id="stab-carry">이월</button>
+            <button class="ptab" onclick="setStatsTab('weekday',this)" id="stab-weekday">요일</button>
+            <button class="ptab" onclick="setStatsTab('minutes',this)" id="stab-minutes">회의록</button>
+          </div>
         </div>
       </div>
-      <div class="sum-grid" id="sum-grid"></div>
-      <div class="chart-card">
-        <div class="chart-hd"><span id="chart-lbl">최근 7일 달성률</span></div>
-        <div class="bar-chart" id="bar-chart"></div>
+
+      <!-- AI 코멘트 -->
+      <div id="ai-comment-wrap" style="margin-bottom:18px;display:none;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:flex-start;">
+          <div style="font-size:22px;flex-shrink:0;">🤖</div>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;">이번 기간 패턴 분석</div>
+            <div id="ai-comment" style="font-size:13px;line-height:1.7;color:var(--text);"></div>
+          </div>
+        </div>
       </div>
-      <div class="section-card">
-        <div class="section-head"><h3>날짜별 상세</h3></div>
-        <table class="task-table">
-          <thead><tr>
-            <th>날짜</th><th>주요 일정</th>
-            <th style="width:70px;text-align:center;">총</th>
-            <th style="width:70px;text-align:center;">완료</th>
-            <th style="width:70px;text-align:center;">달성률</th>
-          </tr></thead>
-          <tbody id="stats-tbody"></tbody>
-        </table>
+
+      <!-- OVERVIEW TAB -->
+      <div id="stats-tab-overview">
+        <div class="sum-grid" id="sum-grid"></div>
+        <div class="chart-card">
+          <div class="chart-hd"><span id="chart-lbl">달성률 추이</span></div>
+          <div class="bar-chart" id="bar-chart"></div>
+        </div>
+        <div class="section-card">
+          <div class="section-head"><h3>날짜별 상세</h3></div>
+          <table class="task-table">
+            <thead><tr>
+              <th>날짜</th><th>주요 일정</th>
+              <th style="width:60px;text-align:center;">총</th>
+              <th style="width:60px;text-align:center;">완료</th>
+              <th style="width:70px;text-align:center;">달성률</th>
+            </tr></thead>
+            <tbody id="stats-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PRIORITY TAB -->
+      <div id="stats-tab-priority" style="display:none;">
+        <div id="priority-content"></div>
+      </div>
+
+      <!-- CATEGORY TAB -->
+      <div id="stats-tab-category" style="display:none;">
+        <div id="category-content"></div>
+      </div>
+
+      <!-- CARRY TAB -->
+      <div id="stats-tab-carry" style="display:none;">
+        <div id="carry-content"></div>
+      </div>
+
+      <!-- WEEKDAY TAB -->
+      <div id="stats-tab-weekday" style="display:none;">
+        <div id="weekday-content"></div>
+      </div>
+
+      <!-- MINUTES TAB -->
+      <div id="stats-tab-minutes" style="display:none;">
+        <div id="minutes-content"></div>
       </div>
     </div>
 
@@ -1099,30 +1182,85 @@ async function renderHistory(){
 }
 
 /* ═══════════════════════════════════════
-   STATS
+   STATS — 강화 버전
 ═══════════════════════════════════════ */
 let statPeriod='week';
-function setPeriod(p,btn){statPeriod=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderStats();}
+let curStatsTab='overview';
+let statsFullData=[]; // 상세 데이터 캐시
+
+function setPeriod(p,btn){
+  statPeriod=p;
+  // period 탭만 업데이트 (stats 탭은 유지)
+  btn.closest('.period-tabs').querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStats();
+}
+
+function setStatsTab(tab,btn){
+  curStatsTab=tab;
+  btn.closest('.period-tabs').querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['overview','priority','category','carry','weekday','minutes'].forEach(t=>{
+    const el=document.getElementById('stats-tab-'+t);
+    if(el)el.style.display=t===tab?'block':'none';
+  });
+  renderStatsTab(tab);
+}
 
 async function renderStats(){
   showLoading('통계 불러오는 중...');
+  // 상세 데이터 필요 — supabase에서 전체 가져오기
   const list=await fetchList();
-  hideLoading();
+  // 기간에 맞는 날짜 범위 계산
   const today=new Date(),n=statPeriod==='week'?7:30;
-  document.getElementById('chart-lbl').textContent=`최근 ${n}일 달성률`;
   const dates=[];
   for(let i=n-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);dates.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}
-  const map={};list.forEach(item=>{map[item.date]=item.summary;});
-  const dayData=dates.map(date=>{const s=map[date];if(!s||!s.total)return{date,total:0,done:0,rate:null};return{date,total:s.total,done:s.done,rate:Math.round(s.done/s.total*100)};});
+  const targetDates=new Set(dates);
+  // 기간 내 날짜만 필터
+  const periodList=list.filter(item=>targetDates.has(item.date));
+  // 상세 데이터 로드 (병렬)
+  const detailPromises=periodList.map(item=>fetchDay(item.date));
+  const details=await Promise.all(detailPromises);
+  statsFullData=periodList.map((item,i)=>({date:item.date,summary:item.summary,tasks:details[i]?.tasks||[],memo:details[i]?.memo||'',agenda:details[i]?.agenda||''}));
+  hideLoading();
+
+  // 개요 탭 렌더
+  renderOverviewTab(dates,statsFullData);
+  // AI 코멘트
+  renderAIComment(statsFullData);
+  // 현재 탭 재렌더
+  if(curStatsTab!=='overview') renderStatsTab(curStatsTab);
+}
+
+function renderStatsTab(tab){
+  if(tab==='overview') renderOverviewTab(null,statsFullData);
+  else if(tab==='priority') renderPriorityTab(statsFullData);
+  else if(tab==='category') renderCategoryTab(statsFullData);
+  else if(tab==='carry') renderCarryTab(statsFullData);
+  else if(tab==='weekday') renderWeekdayTab(statsFullData);
+  else if(tab==='minutes') renderMinutesTab(statsFullData);
+}
+
+/* ── 개요 탭 ── */
+function renderOverviewTab(dates,data){
+  const n=statPeriod==='week'?7:30;
+  const today=new Date();
+  if(!dates){dates=[];for(let i=n-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);dates.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}}
+  const map={};data.forEach(d=>{map[d.date]=d;});
+  const dayData=dates.map(date=>{const s=map[date];if(!s||!s.summary.total)return{date,total:0,done:0,rate:null};return{date,total:s.summary.total,done:s.summary.done,rate:Math.round(s.summary.done/s.summary.total*100)};});
   const withData=dayData.filter(d=>d.rate!==null);
   const avg=withData.length?Math.round(withData.reduce((a,b)=>a+b.rate,0)/withData.length):0;
   const totalT=withData.reduce((a,b)=>a+b.total,0),totalD=withData.reduce((a,b)=>a+b.done,0);
   const best=withData.reduce((b,d)=>(!b||d.rate>b.rate?d:b),null);
+  const streak=calcStreak(data);
   document.getElementById('sum-grid').innerHTML=`
     <div class="sum-card"><div class="sum-lbl">평균 달성률</div><div class="sum-val">${avg}%</div><div class="sum-sub">${withData.length}일 기준</div></div>
     <div class="sum-card"><div class="sum-lbl">완료 업무</div><div class="sum-val">${totalD}</div><div class="sum-sub">총 ${totalT}개 중</div></div>
     <div class="sum-card"><div class="sum-lbl">최고 달성일</div><div class="sum-val">${best?best.rate+'%':'—'}</div><div class="sum-sub">${best?best.date:'기록 없음'}</div></div>
+    <div class="sum-card"><div class="sum-lbl">연속 달성</div><div class="sum-val">${streak}일</div><div class="sum-sub">80% 이상 연속</div></div>
   `;
+  document.getElementById('sum-grid').style.gridTemplateColumns='repeat(4,1fr)';
+  document.getElementById('chart-lbl').textContent=`최근 ${n}일 달성률`;
   const bc=document.getElementById('bar-chart');bc.innerHTML='';
   const step=statPeriod==='week'?1:3;
   dayData.forEach((d,i)=>{
@@ -1139,17 +1277,230 @@ async function renderStats(){
     if(d.rate===null)return;
     const[y,m,dd]=d.date.split('-').map(Number);const dt=new Date(y,m-1,dd);
     const tr=document.createElement('tr');tr.className='task-row';tr.style.cursor='pointer';
-    tr.innerHTML=`
-      <td>${d.date} (${DAYS[dt.getDay()]})</td>
-      <td style="font-size:12px;color:var(--text2);">${esc((map[d.date]&&map[d.date].agenda)||'—')}</td>
-      <td style="text-align:center;">${d.total}</td>
-      <td style="text-align:center;">${d.done}</td>
-      <td style="text-align:center;font-weight:600;color:${d.rate>=80?'var(--green)':d.rate>=50?'var(--accent)':'var(--red)'};">${d.rate}%</td>
-    `;
+    tr.innerHTML=`<td>${d.date} (${DAYS[dt.getDay()]})</td><td style="font-size:12px;color:var(--text2);">${esc((map[d.date]&&map[d.date].agenda)||'—')}</td><td style="text-align:center;">${d.total}</td><td style="text-align:center;">${d.done}</td><td style="text-align:center;font-weight:600;color:${d.rate>=80?'var(--green)':d.rate>=50?'var(--accent)':'var(--red)'};">${d.rate}%</td>`;
     tr.onclick=async()=>{curDate=d.date;await loadDay(curDate);showView('today');};
     tbody.appendChild(tr);
   });
   if(!tbody.children.length)tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3);">아직 데이터가 없어요</td></tr>';
+}
+
+function calcStreak(data){
+  const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date));
+  let streak=0;
+  for(const d of sorted){
+    const r=d.summary.total?Math.round(d.summary.done/d.summary.total*100):0;
+    if(r>=80)streak++;else break;
+  }
+  return streak;
+}
+
+/* ── 우선순위 탭 ── */
+function renderPriorityTab(data){
+  const el=document.getElementById('priority-content');
+  const priMap={1:{label:'낮음',icon:'🟢',color:'#6a9e7a'},2:{label:'보통',icon:'🟡',color:'#a68960'},3:{label:'높음',icon:'🟠',color:'#c97a45'},4:{label:'최우선',icon:'🔴',color:'#c97070'}};
+  const stats={1:{total:0,done:0},2:{total:0,done:0},3:{total:0,done:0},4:{total:0,done:0}};
+  data.forEach(d=>(d.tasks||[]).forEach(t=>{const p=t.priority||2;if(stats[p]){stats[p].total++;if(t.done)stats[p].done++;}}));
+  let html=`<div class="section-card"><div class="section-head"><h3>우선순위별 완료율</h3></div><div style="padding:14px 18px;">`;
+  [4,3,2,1].forEach(p=>{
+    const s=stats[p];const pct=s.total?Math.round(s.done/s.total*100):0;const pm=priMap[p];
+    html+=`<div class="pri-row">
+      <span class="pri-icon">${pm.icon}</span>
+      <span class="pri-label">${pm.label}</span>
+      <div class="pri-bar-wrap"><div class="pri-bar-fill" style="width:${pct}%;background:${pm.color};"></div></div>
+      <span class="pri-pct">${pct}%</span>
+      <span class="pri-cnt">${s.done}/${s.total}개</span>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  // 인사이트
+  const highPri=stats[4];const highRate=highPri.total?Math.round(highPri.done/highPri.total*100):null;
+  const lowPri=stats[1];const lowRate=lowPri.total?Math.round(lowPri.done/lowPri.total*100):null;
+  if(highRate!==null||lowRate!==null){
+    html+=`<div class="section-card" style="margin-top:12px;"><div class="section-head"><h3>💡 인사이트</h3></div><div style="padding:14px 18px;font-size:13px;line-height:1.8;color:var(--text2);">`;
+    if(highRate!==null)html+=`🔴 최우선 업무 완료율은 <strong style="color:var(--text)">${highRate}%</strong>예요. ${highRate>=80?'높은 우선순위 업무를 잘 처리하고 있어요 👍':highRate>=50?'최우선 업무 중 일부가 미완료로 남아있어요. 업무 분배를 검토해 보세요.':'최우선 업무 완료율이 낮아요. 긴급 업무에 집중할 필요가 있어요 ⚠️'}<br>`;
+    if(lowRate!==null&&highRate!==null&&lowRate>highRate)html+=`🟢 낮은 우선순위 업무(${lowRate}%)가 높은 우선순위(${highRate}%)보다 완료율이 높아요. 중요한 일부터 처리하는 습관을 만들어 보세요.`;
+    html+=`</div></div>`;
+  }
+  el.innerHTML=html;
+}
+
+/* ── 카테고리 탭 ── */
+function renderCategoryTab(data){
+  const el=document.getElementById('category-content');
+  const catMap={};
+  data.forEach(d=>(d.tasks||[]).forEach(t=>{
+    const c=t.category||'(미분류)';
+    if(!catMap[c])catMap[c]={total:0,done:0};
+    catMap[c].total++;if(t.done)catMap[c].done++;
+  }));
+  const cats=Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total);
+  if(!cats.length){el.innerHTML='<div class="empty-state"><p>아직 카테고리 데이터가 없어요</p></div>';return;}
+  const maxTotal=Math.max(...cats.map(([,v])=>v.total));
+  let html=`<div class="section-card"><div class="section-head"><h3>카테고리별 업무량 & 완료율</h3></div><div style="padding:14px 18px;">`;
+  cats.forEach(([name,s])=>{
+    const pct=Math.round(s.done/s.total*100);
+    const barW=Math.round(s.total/maxTotal*100);
+    html+=`<div class="cat-row">
+      <span class="cat-name" title="${esc(name)}">${esc(name)}</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${barW}%;opacity:0.4;"></div></div>
+      <span class="cat-cnt">${s.done}/${s.total}개 (${pct}%)</span>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  // 가장 많은 카테고리 인사이트
+  const top=cats[0];const topPct=Math.round(top[1].done/top[1].total*100);
+  html+=`<div class="section-card" style="margin-top:12px;"><div class="section-head"><h3>💡 인사이트</h3></div><div style="padding:14px 18px;font-size:13px;line-height:1.8;color:var(--text2);">
+    가장 많은 업무는 <strong style="color:var(--text)">'${esc(top[0])}'</strong> (${top[1].total}개, 완료율 ${topPct}%)예요.
+    ${topPct<60?` 업무량에 비해 완료율이 낮아요. 해당 업무의 난이도나 분량을 점검해 보세요.`:''}
+    ${cats.length>1?`<br>총 ${cats.length}개 카테고리에서 업무가 분산되고 있어요.`:''}
+  </div></div>`;
+  el.innerHTML=html;
+}
+
+/* ── 이월 탭 ── */
+function renderCarryTab(data){
+  const el=document.getElementById('carry-content');
+  const carryMap={};
+  data.forEach(d=>(d.tasks||[]).forEach(t=>{if(t.carriedFrom){const key=t.name;if(!carryMap[key])carryMap[key]=0;carryMap[key]++;}}));
+  const carries=Object.entries(carryMap).sort((a,b)=>b[1]-a[1]);
+  const totalCarried=data.reduce((sum,d)=>(d.tasks||[]).filter(t=>t.carriedFrom).length+sum,0);
+  const totalTasks=data.reduce((sum,d)=>(d.tasks||[]).length+sum,0);
+  let html=`<div class="sum-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:14px;">
+    <div class="sum-card"><div class="sum-lbl">총 이월 횟수</div><div class="sum-val">${totalCarried}</div><div class="sum-sub">전체 업무 중</div></div>
+    <div class="sum-card"><div class="sum-lbl">이월율</div><div class="sum-val">${totalTasks?Math.round(totalCarried/totalTasks*100):0}%</div><div class="sum-sub">업무 대비</div></div>
+    <div class="sum-card"><div class="sum-lbl">반복 이월 업무</div><div class="sum-val">${carries.filter(([,n])=>n>=2).length}개</div><div class="sum-sub">2회 이상</div></div>
+  </div>`;
+  if(carries.length){
+    html+=`<div class="section-card"><div class="section-head"><h3>자주 이월되는 업무 TOP</h3></div><div style="padding:12px 16px;">`;
+    carries.slice(0,10).forEach(([name,cnt])=>{
+      html+=`<div class="carry-item"><span class="carry-name">${esc(name)}</span><span class="carry-cnt">🔄 ${cnt}회 이월</span></div>`;
+    });
+    html+=`</div></div>`;
+    const topCarry=carries[0];
+    html+=`<div class="section-card" style="margin-top:12px;"><div class="section-head"><h3>💡 인사이트</h3></div><div style="padding:14px 18px;font-size:13px;line-height:1.8;color:var(--text2);">`;
+    if(topCarry[1]>=3)html+=`'<strong style="color:var(--text)">${esc(topCarry[0])}</strong>'이 ${topCarry[1]}번 이월됐어요. 이 업무가 계속 밀리는 원인을 분석하거나, 더 작은 단위로 쪼개보세요.<br>`;
+    if(totalCarried/Math.max(totalTasks,1)>0.3)html+=`⚠️ 이월율이 30%를 넘어요. 하루 업무량이 너무 많을 수 있어요. 목표 업무 수를 줄여보세요.`;
+    else html+=`이월율이 양호한 편이에요. 현재 업무 분배가 잘 되고 있어요 👍`;
+    html+=`</div></div>`;
+  } else {
+    html+=`<div class="empty-state"><p>이월된 업무가 없어요 🎉</p></div>`;
+  }
+  el.innerHTML=html;
+}
+
+/* ── 요일별 탭 ── */
+function renderWeekdayTab(data){
+  const el=document.getElementById('weekday-content');
+  const wdStats=[0,1,2,3,4,5,6].map(()=>({total:0,done:0,days:0}));
+  data.forEach(d=>{
+    if(!d.summary.total)return;
+    const[y,m,dd]=d.date.split('-').map(Number);
+    const dow=new Date(y,m-1,dd).getDay();
+    wdStats[dow].total+=d.summary.total;
+    wdStats[dow].done+=d.summary.done;
+    wdStats[dow].days++;
+  });
+  const workdays=[1,2,3,4,5]; // 월~금
+  let html=`<div class="section-card"><div class="section-head"><h3>요일별 평균 달성률</h3></div><div style="padding:14px 18px;">`;
+  workdays.forEach(dow=>{
+    const s=wdStats[dow];const pct=s.days?Math.round(s.done/s.total*100):null;const avgTasks=s.days?Math.round(s.total/s.days*10)/10:0;
+    html+=`<div class="wd-row">
+      <span class="wd-name">${DAYS[dow]}</span>
+      <div class="wd-bar-wrap"><div class="wd-bar-fill" style="width:${pct||0}%;"></div></div>
+      <span class="wd-pct">${pct!==null?pct+'%':'—'}</span>
+      <span class="wd-cnt">평균 ${avgTasks}개</span>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  // 인사이트
+  const wdWithData=workdays.filter(d=>wdStats[d].days>0);
+  if(wdWithData.length>=2){
+    const best=wdWithData.reduce((b,d)=>{const r=wdStats[d].days?Math.round(wdStats[d].done/wdStats[d].total*100):0;return r>(wdStats[b].days?Math.round(wdStats[b].done/wdStats[b].total*100):0)?d:b;});
+    const worst=wdWithData.reduce((b,d)=>{const r=wdStats[d].days?Math.round(wdStats[d].done/wdStats[d].total*100):0;return r<(wdStats[b].days?Math.round(wdStats[b].done/wdStats[b].total*100):0)?d:b;});
+    const busiestDow=workdays.reduce((b,d)=>wdStats[d].total>wdStats[b].total?d:b);
+    html+=`<div class="section-card" style="margin-top:12px;"><div class="section-head"><h3>💡 인사이트</h3></div><div style="padding:14px 18px;font-size:13px;line-height:1.8;color:var(--text2);">
+      📈 달성률이 가장 높은 요일은 <strong style="color:var(--text)">${DAYS[best]}요일</strong>이에요.<br>
+      📉 달성률이 가장 낮은 요일은 <strong style="color:var(--text)">${DAYS[worst]}요일</strong>이에요. 해당 요일에 업무가 몰리지 않는지 확인해 보세요.<br>
+      📋 업무량이 가장 많은 요일은 <strong style="color:var(--text)">${DAYS[busiestDow]}요일</strong> (평균 ${Math.round(wdStats[busiestDow].total/wdStats[busiestDow].days*10)/10}개)이에요.
+    </div></div>`;
+  }
+  el.innerHTML=html;
+}
+
+/* ── 회의록 탭 ── */
+async function renderMinutesTab(data){
+  const el=document.getElementById('minutes-content');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);">회의록 불러오는 중...</div>';
+  const allMinutes=[];
+  data.forEach(d=>(d.tasks||[]).forEach(t=>{
+    if(t.minutesTitle){
+      allMinutes.push({date:d.date,taskName:t.name,title:t.minutesTitle,datetime:t.minutesDatetime,attendees:t.minutesAttendees,content:t.minutesContent,action:t.minutesAction});
+    }
+  }));
+  allMinutes.sort((a,b)=>b.date.localeCompare(a.date));
+  if(!allMinutes.length){el.innerHTML='<div class="empty-state"><p>이 기간에 작성된 회의록이 없어요</p></div>';return;}
+  let html=`<div style="margin-bottom:10px;font-size:12px;color:var(--text3);">총 ${allMinutes.length}건의 회의록</div>`;
+  allMinutes.forEach((m,i)=>{
+    html+=`<div class="minutes-card" onclick="openMinutesView(${i})">
+      <div class="minutes-card-title">${esc(m.title)}</div>
+      <div class="minutes-card-meta">
+        <span>📅 ${m.date}${m.datetime?(' '+m.datetime.split(' ')[1]||''):''}  </span>
+        ${m.attendees?`<span>👥 ${esc(m.attendees)}</span>`:''}
+        <span style="color:var(--accent);">🔗 ${esc(m.taskName)}</span>
+      </div>
+      ${m.content?`<div class="minutes-card-preview">${esc(m.content)}</div>`:''}
+    </div>`;
+  });
+  el.innerHTML=html;
+  window._statsMinutes=allMinutes;
+}
+
+function openMinutesView(i){
+  const m=window._statsMinutes[i];
+  if(!m)return;
+  // 회의록 모달 재활용
+  document.getElementById('min-title').textContent=m.title;
+  document.getElementById('m-ttl').value=m.title;
+  document.getElementById('m-dt').value=m.datetime||m.date;
+  document.getElementById('m-att').value=m.attendees||'';
+  document.getElementById('m-body').value=m.content||'';
+  document.getElementById('m-action').value=m.action||'';
+  // 읽기 전용으로 표시
+  ['m-ttl','m-dt','m-att','m-body','m-action'].forEach(id=>{document.getElementById(id).readOnly=true;document.getElementById(id).style.background='var(--surface2)';});
+  document.querySelector('#min-modal .modal-ft').innerHTML=`<button class="btn-pri" onclick="closeMinFromStats()">닫기</button>`;
+  document.getElementById('min-modal').classList.add('open');
+}
+function closeMinFromStats(){
+  ['m-ttl','m-dt','m-att','m-body','m-action'].forEach(id=>{document.getElementById(id).readOnly=false;document.getElementById(id).style.background='';});
+  document.querySelector('#min-modal .modal-ft').innerHTML=`<button class="btn-sec" onclick="closeMin()">취소</button><button class="btn-pri" onclick="saveMin()">저장</button>`;
+  closeMin();
+}
+
+/* ── AI 코멘트 ── */
+function renderAIComment(data){
+  const wrap=document.getElementById('ai-comment-wrap');
+  const el=document.getElementById('ai-comment');
+  if(!data.length){wrap.style.display='none';return;}
+  const totalT=data.reduce((s,d)=>s+d.summary.total,0);
+  const totalD=data.reduce((s,d)=>s+d.summary.done,0);
+  const avg=totalT?Math.round(totalD/totalT*100):0;
+  const totalCarried=data.reduce((s,d)=>s+(d.tasks||[]).filter(t=>t.carriedFrom).length,0);
+  const carryRate=totalT?Math.round(totalCarried/totalT*100):0;
+  // 최우선 완료율
+  let hiTotal=0,hiDone=0;
+  data.forEach(d=>(d.tasks||[]).forEach(t=>{if(t.priority===4){hiTotal++;if(t.done)hiDone++;}}));
+  const hiRate=hiTotal?Math.round(hiDone/hiTotal*100):null;
+  // 코멘트 생성
+  const comments=[];
+  if(avg>=85)comments.push(`전체 달성률 ${avg}%로 아주 훌륭해요! 이 페이스를 유지해 보세요 🎉`);
+  else if(avg>=65)comments.push(`전체 달성률 ${avg}%. 안정적인 수준이에요. 조금만 더 집중하면 90%도 가능해요.`);
+  else if(avg>0)comments.push(`전체 달성률 ${avg}%로 개선이 필요해요. 하루 목표 업무 수를 줄이거나 우선순위를 다시 점검해 보세요.`);
+  if(hiRate!==null&&hiRate<70)comments.push(`🔴 최우선 업무 완료율이 ${hiRate}%예요. 급한 업무가 계속 밀리고 있어요.`);
+  if(carryRate>=30)comments.push(`이월율이 ${carryRate}%로 높아요. 하루에 처리할 수 있는 업무량을 조정해 보세요.`);
+  else if(carryRate===0&&data.length>2)comments.push(`이월 없이 그날 업무를 그날 처리하고 있어요 👍`);
+  if(!comments.length)comments.push(`데이터가 쌓일수록 더 정확한 분석을 드릴 수 있어요. 꾸준히 기록해 보세요!`);
+  el.innerHTML=comments.map(c=>`• ${c}`).join('<br>');
+  wrap.style.display='block';
 }
 
 
@@ -1249,7 +1600,14 @@ function showView(v){
   document.querySelectorAll('.nav-btn')[idx].classList.add('active');
   if(v==='calendar')renderCalendar();
   if(v==='history')renderHistory();
-  if(v==='stats')renderStats();
+  if(v==='stats'){
+    // 모든 서브탭 중 overview만 표시
+    ['overview','priority','category','carry','weekday','minutes'].forEach(t=>{
+      const el=document.getElementById('stats-tab-'+t);
+      if(el)el.style.display=t===curStatsTab?'block':'none';
+    });
+    renderStats();
+  }
 }
 
 /* ═══════════════════════════════════════

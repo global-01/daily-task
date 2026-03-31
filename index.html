@@ -453,21 +453,40 @@
 
     <!-- STATS -->
     <div class="view" id="view-stats">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
-        <h2 style="font-family:'DM Serif Display',serif;font-size:21px;">통계</h2>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <div class="period-tabs">
-            <button class="ptab active" onclick="setPeriod('week',this)">주간</button>
-            <button class="ptab" onclick="setPeriod('month',this)">월간</button>
+      <div style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+          <h2 style="font-family:'DM Serif Display',serif;font-size:21px;">통계</h2>
+          <!-- 기간 선택 컨트롤 -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="period-tabs" id="period-quick-tabs">
+              <button class="ptab active" onclick="setPeriod('week',this)">최근 7일</button>
+              <button class="ptab" onclick="setPeriod('month',this)">최근 30일</button>
+              <button class="ptab" onclick="setPeriod('custom',this)">기간 직접 선택</button>
+            </div>
           </div>
-          <div class="period-tabs" style="margin-left:8px;">
-            <button class="ptab active" onclick="setStatsTab('overview',this)" id="stab-overview">개요</button>
-            <button class="ptab" onclick="setStatsTab('priority',this)" id="stab-priority">우선순위</button>
-            <button class="ptab" onclick="setStatsTab('category',this)" id="stab-category">카테고리</button>
-            <button class="ptab" onclick="setStatsTab('carry',this)" id="stab-carry">이월</button>
-            <button class="ptab" onclick="setStatsTab('weekday',this)" id="stab-weekday">요일</button>
-            <button class="ptab" onclick="setStatsTab('minutes',this)" id="stab-minutes">회의록</button>
+        </div>
+        <!-- 직접 선택 날짜 피커 (숨김) -->
+        <div id="custom-range-row" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;">
+          <span style="font-size:12px;color:var(--text2);">시작일</span>
+          <input type="date" id="stat-date-from" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;">
+          <span style="font-size:12px;color:var(--text2);">~</span>
+          <input type="date" id="stat-date-to" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;">
+          <button onclick="applyCustomRange()" style="padding:5px 14px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;font-weight:600;">조회</button>
+          <div style="display:flex;gap:4px;margin-left:4px;">
+            <button onclick="setPresetRange('thisWeek')" style="padding:4px 9px;border:1px solid var(--border2);border-radius:6px;font-size:11px;background:transparent;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">이번주</button>
+            <button onclick="setPresetRange('lastWeek')" style="padding:4px 9px;border:1px solid var(--border2);border-radius:6px;font-size:11px;background:transparent;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">지난주</button>
+            <button onclick="setPresetRange('thisMonth')" style="padding:4px 9px;border:1px solid var(--border2);border-radius:6px;font-size:11px;background:transparent;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">이번달</button>
+            <button onclick="setPresetRange('lastMonth')" style="padding:4px 9px;border:1px solid var(--border2);border-radius:6px;font-size:11px;background:transparent;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">지난달</button>
           </div>
+        </div>
+        <!-- 분석 서브탭 -->
+        <div class="period-tabs">
+          <button class="ptab active" onclick="setStatsTab('overview',this)" id="stab-overview">개요</button>
+          <button class="ptab" onclick="setStatsTab('priority',this)" id="stab-priority">우선순위</button>
+          <button class="ptab" onclick="setStatsTab('category',this)" id="stab-category">카테고리</button>
+          <button class="ptab" onclick="setStatsTab('carry',this)" id="stab-carry">이월</button>
+          <button class="ptab" onclick="setStatsTab('weekday',this)" id="stab-weekday">요일</button>
+          <button class="ptab" onclick="setStatsTab('minutes',this)" id="stab-minutes">회의록</button>
         </div>
       </div>
 
@@ -1187,13 +1206,85 @@ async function renderHistory(){
 let statPeriod='week';
 let curStatsTab='overview';
 let statsFullData=[]; // 상세 데이터 캐시
+let statDateFrom=null; // custom 시작일
+let statDateTo=null;   // custom 종료일
 
 function setPeriod(p,btn){
   statPeriod=p;
-  // period 탭만 업데이트 (stats 탭은 유지)
   btn.closest('.period-tabs').querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  const customRow=document.getElementById('custom-range-row');
+  if(p==='custom'){
+    customRow.style.display='flex';
+    // 기본값: 이번 달
+    if(!statDateFrom)setPresetRange('thisMonth',false);
+    return; // 조회 버튼 누를 때까지 대기
+  } else {
+    customRow.style.display='none';
+    statDateFrom=null; statDateTo=null;
+    renderStats();
+  }
+}
+
+function setPresetRange(preset, andRender=true){
+  const today=new Date();
+  const y=today.getFullYear(),m=today.getMonth(),d=today.getDate();
+  let from,to;
+  if(preset==='thisWeek'){
+    const dow=today.getDay();const mon=new Date(y,m,d-(dow===0?6:dow-1));
+    from=`${mon.getFullYear()}-${pad(mon.getMonth()+1)}-${pad(mon.getDate())}`;
+    to=todayStr();
+  } else if(preset==='lastWeek'){
+    const dow=today.getDay();const thisMonday=new Date(y,m,d-(dow===0?6:dow-1));
+    const lastMon=new Date(thisMonday);lastMon.setDate(lastMon.getDate()-7);
+    const lastSun=new Date(lastMon);lastSun.setDate(lastMon.getDate()+6);
+    from=`${lastMon.getFullYear()}-${pad(lastMon.getMonth()+1)}-${pad(lastMon.getDate())}`;
+    to=`${lastSun.getFullYear()}-${pad(lastSun.getMonth()+1)}-${pad(lastSun.getDate())}`;
+  } else if(preset==='thisMonth'){
+    from=`${y}-${pad(m+1)}-01`;to=todayStr();
+  } else if(preset==='lastMonth'){
+    const lm=m===0?12:m;const ly=m===0?y-1:y;
+    const lastDay=new Date(ly,lm,0).getDate();
+    from=`${ly}-${pad(lm)}-01`;to=`${ly}-${pad(lm)}-${pad(lastDay)}`;
+  }
+  statDateFrom=from; statDateTo=to;
+  const fromEl=document.getElementById('stat-date-from');
+  const toEl=document.getElementById('stat-date-to');
+  if(fromEl)fromEl.value=from;
+  if(toEl)toEl.value=to;
+  if(andRender)renderStats();
+}
+
+function applyCustomRange(){
+  const from=document.getElementById('stat-date-from').value;
+  const to=document.getElementById('stat-date-to').value;
+  if(!from||!to){toast('시작일과 종료일을 모두 선택해 주세요');return;}
+  if(from>to){toast('종료일이 시작일보다 빠를 수 없어요');return;}
+  // 최대 365일 제한
+  const diffMs=new Date(to)-new Date(from);
+  const diffDays=Math.round(diffMs/(1000*60*60*24));
+  if(diffDays>365){toast('최대 조회 기간은 1년(365일)이에요');return;}
+  statDateFrom=from; statDateTo=to;
   renderStats();
+}
+
+function getStatDates(){
+  if(statPeriod==='custom'&&statDateFrom&&statDateTo){
+    // 시작~종료 사이 모든 날짜 생성
+    const dates=[];let cur=statDateFrom;
+    let safety=0;
+    while(cur<=statDateTo&&safety<366){dates.push(cur);cur=addDays(cur,1);safety++;}
+    return dates;
+  }
+  const n=statPeriod==='week'?7:30;
+  const today=new Date();const dates=[];
+  for(let i=n-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);dates.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}
+  return dates;
+}
+
+function getStatLabel(){
+  if(statPeriod==='custom'&&statDateFrom&&statDateTo)return`${statDateFrom} ~ ${statDateTo}`;
+  return statPeriod==='week'?'최근 7일':'최근 30일';
 }
 
 function setStatsTab(tab,btn){
@@ -1212,9 +1303,7 @@ async function renderStats(){
   // 상세 데이터 필요 — supabase에서 전체 가져오기
   const list=await fetchList();
   // 기간에 맞는 날짜 범위 계산
-  const today=new Date(),n=statPeriod==='week'?7:30;
-  const dates=[];
-  for(let i=n-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);dates.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}
+  const dates=getStatDates();
   const targetDates=new Set(dates);
   // 기간 내 날짜만 필터
   const periodList=list.filter(item=>targetDates.has(item.date));
@@ -1243,9 +1332,7 @@ function renderStatsTab(tab){
 
 /* ── 개요 탭 ── */
 function renderOverviewTab(dates,data){
-  const n=statPeriod==='week'?7:30;
-  const today=new Date();
-  if(!dates){dates=[];for(let i=n-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);dates.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`);}}
+  if(!dates)dates=getStatDates();
   const map={};data.forEach(d=>{map[d.date]=d;});
   const dayData=dates.map(date=>{const s=map[date];if(!s||!s.summary.total)return{date,total:0,done:0,rate:null};return{date,total:s.summary.total,done:s.summary.done,rate:Math.round(s.summary.done/s.summary.total*100)};});
   const withData=dayData.filter(d=>d.rate!==null);
@@ -1260,7 +1347,7 @@ function renderOverviewTab(dates,data){
     <div class="sum-card"><div class="sum-lbl">연속 달성</div><div class="sum-val">${streak}일</div><div class="sum-sub">80% 이상 연속</div></div>
   `;
   document.getElementById('sum-grid').style.gridTemplateColumns='repeat(4,1fr)';
-  document.getElementById('chart-lbl').textContent=`최근 ${n}일 달성률`;
+  document.getElementById('chart-lbl').textContent=getStatLabel()+' 달성률';
   const bc=document.getElementById('bar-chart');bc.innerHTML='';
   const step=statPeriod==='week'?1:3;
   dayData.forEach((d,i)=>{

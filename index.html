@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>일일 업무 관리</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg:#f5f3ef; --surface:#fff; --surface2:#faf9f7;
@@ -24,7 +24,7 @@
   /* ── SETUP ── */
   .setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
   .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow2);width:100%;max-width:520px;padding:40px}
-  .setup-logo{font-family:'DM Serif Display',serif;font-size:22px;color:var(--accent);margin-bottom:8px}
+  .setup-logo{font-family:'Noto Serif KR',serif;font-size:22px;color:var(--accent);margin-bottom:8px}
   .setup-title{font-size:18px;font-weight:600;margin-bottom:6px}
   .setup-sub{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.6}
   .setup-step{display:flex;gap:12px;margin-bottom:18px;align-items:flex-start}
@@ -42,7 +42,7 @@
 
   /* ── HEADER ── */
   .app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;gap:20px;height:58px;position:sticky;top:0;z-index:100}
-  .app-logo{font-family:'DM Serif Display',serif;font-size:19px;color:var(--accent);white-space:nowrap}
+  .app-logo{font-family:'Noto Serif KR',serif;font-size:19px;color:var(--accent);white-space:nowrap}
   .header-nav{display:flex;gap:3px}
   .nav-btn{padding:5px 14px;border-radius:20px;border:none;background:transparent;color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s}
   .nav-btn:hover{background:var(--accent-soft);color:var(--accent)}
@@ -63,7 +63,7 @@
 
   /* ── TODAY ── */
   .today-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:16px;flex-wrap:wrap}
-  .today-date-block h2{font-family:'DM Serif Display',serif;font-size:26px;color:var(--text);line-height:1}
+  .today-date-block h2{font-family:'Noto Serif KR',serif;font-size:26px;color:var(--text);line-height:1}
   .today-date-block .weekday{font-size:12px;color:var(--text3);margin-top:4px;font-weight:300}
   .date-controls{display:flex;align-items:center;gap:8px}
   .date-nav-btn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
@@ -169,7 +169,7 @@
      CALENDAR VIEW
   ════════════════════════════════ */
   .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
-  .cal-month-title{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text)}
+  .cal-month-title{font-family:'Noto Serif KR',serif;font-size:22px;color:var(--text)}
   .cal-nav{display:flex;align-items:center;gap:8px}
   .cal-nav-btn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
   .cal-nav-btn:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
@@ -345,9 +345,9 @@
 </div>
 
 <!-- LOGIN SCREEN -->
-<div id="login-screen" style="display:none;min-height:100vh;background:var(--bg);"><div style="display:flex;align-items:center;justify-content:center;padding:24px;">
+<div id="login-screen" style="display:none;min-height:100vh;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow2);width:100%;max-width:400px;padding:40px;text-align:center;">
-    <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--accent);margin-bottom:8px;">📋 Daily</div>
+    <div style="font-family:'Noto Serif KR','Georgia',serif;font-size:28px;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;">📋 Daily</div>
     <div style="font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text);">일일 업무 관리</div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:32px;line-height:1.6;">구글 계정으로 로그인하면<br>어떤 기기에서든 내 업무를 확인할 수 있어요.</div>
     <button onclick="signInWithGoogle()" style="width:100%;padding:13px 20px;background:white;border:1.5px solid var(--border2);border-radius:var(--r2);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;box-shadow:var(--shadow);" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
@@ -464,7 +464,7 @@
     <!-- HISTORY -->
     <div class="view" id="view-history">
       <div style="display:flex;align-items:center;margin-bottom:18px;">
-        <h2 style="font-family:'DM Serif Display',serif;font-size:21px;">기록</h2>
+        <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">기록</h2>
       </div>
       <div class="hist-grid" id="hist-list"></div>
       <div class="empty-state" id="hist-empty" style="display:none;"><p>아직 저장된 기록이 없어요</p></div>
@@ -474,7 +474,7 @@
     <div class="view" id="view-stats">
       <div style="margin-bottom:18px;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-          <h2 style="font-family:'DM Serif Display',serif;font-size:21px;">통계</h2>
+          <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">통계</h2>
           <!-- 기간 선택 컨트롤 -->
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <div class="period-tabs" id="period-quick-tabs">

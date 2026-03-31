@@ -638,7 +638,7 @@
     <div class="modal-hd"><h3 id="recurring-modal-title">반복업무 추가</h3><button class="modal-x" onclick="closeRecurringModal()">✕</button></div>
     <div class="modal-body">
       <div class="m-lbl">구분</div>
-      <input class="m-input" id="r-category" placeholder="예: 제휴 (선택)">
+      <input class="m-input" id="r-category" placeholder="예: 홀카페 (선택)">
       <div class="m-lbl">업무 내용</div>
       <input class="m-input" id="r-name" placeholder="반복 업무 내용을 입력하세요">
       <div class="m-lbl">우선순위</div>
@@ -1023,6 +1023,7 @@ async function init(){
   showMainApp();
   await loadDay(curDate);
   checkAndCarryOver();
+  recurringCache=null;
   injectRecurringTasks();
 }
 
@@ -2024,18 +2025,64 @@ async function checkAndCarryOver(){
 /* ═══════════════════════════════════════
    반복업무
 ═══════════════════════════════════════ */
-const REC_KEY='daily_recurring_v1'; // localStorage에 저장 (기기별)
-
-function loadRecurring(){
-  try{return JSON.parse(localStorage.getItem(REC_KEY))||[];}catch{return[];}
+/* ── 반복업무 Supabase 연동 ── */
+async function sbGetRecurring(){
+  if(!currentSession?.user?.id)return[];
+  try{
+    const res=await fetch(
+      `${SB_URL}/rest/v1/recurring_tasks?user_id=eq.${currentSession.user.id}&select=data`,
+      {headers:getSBHeaders()}
+    );
+    if(!res.ok)return[];
+    const rows=await res.json();
+    return rows&&rows.length?(rows[0].data||[]):[];
+  }catch(e){return[];}
 }
-function saveRecurring_list(list){
-  localStorage.setItem(REC_KEY,JSON.stringify(list));
+
+async function sbSetRecurring(list){
+  if(!currentSession?.user?.id)return false;
+  try{
+    const uid=currentSession.user.id;
+    // 존재 여부 확인
+    const chk=await fetch(
+      `${SB_URL}/rest/v1/recurring_tasks?user_id=eq.${uid}&select=id`,
+      {headers:getSBHeaders()}
+    );
+    const existing=await chk.json();
+    let res;
+    if(existing&&existing.length>0){
+      res=await fetch(
+        `${SB_URL}/rest/v1/recurring_tasks?user_id=eq.${uid}`,
+        {method:'PATCH',headers:{...getSBHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({data:list})}
+      );
+    } else {
+      res=await fetch(
+        `${SB_URL}/rest/v1/recurring_tasks`,
+        {method:'POST',headers:{...getSBHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({user_id:uid,data:list})}
+      );
+    }
+    return res.status===200||res.status===201||res.status===204;
+  }catch(e){return false;}
+}
+
+// 캐시용
+let recurringCache=null;
+
+async function loadRecurring(){
+  if(recurringCache!==null)return recurringCache;
+  recurringCache=await sbGetRecurring();
+  return recurringCache;
+}
+async function saveRecurring_list(list){
+  recurringCache=list;
+  await sbSetRecurring(list);
 }
 
 /* ── 반복업무 렌더 ── */
-function renderRecurring(){
-  const list=loadRecurring();
+async function renderRecurring(){
+  showLoading('반복업무 불러오는 중...');
+  const list=await loadRecurring();
+  hideLoading();
   const el=document.getElementById('recurring-list');
   const empty=document.getElementById('recurring-empty');
   el.innerHTML='';
@@ -2110,7 +2157,7 @@ function updateRecurringTypeUI(){
   document.getElementById('r-monthly-wrap').style.display=type==='monthly-date'?'block':'none';
 }
 
-function saveRecurring(){
+async function saveRecurring(){
   const name=document.getElementById('r-name').value.trim();
   if(!name){toast('업무 내용을 입력해 주세요');return;}
   const type=document.getElementById('r-type').value;
@@ -2130,19 +2177,29 @@ function saveRecurring(){
     if(!d||d<1||d>31){toast('날짜를 1~31 사이로 입력해 주세요');return;}
     rec.monthday=d;
   }
-  const list=loadRecurring();
+  showLoading('저장 중...');
+  const list=await loadRecurring();
   if(editRecurringIdx!==null)list[editRecurringIdx]=rec;
   else list.push(rec);
-  saveRecurring_list(list);
+  await saveRecurring_list(list);
+  // 등록 즉시 다음 주기 날짜에 미리 할 일 추가
+  if(editRecurringIdx===null){
+    await injectRecurringToNextDate(rec);
+  }
+  hideLoading();
   closeRecurringModal();
+  recurringCache=null; // 캐시 초기화
   renderRecurring();
   toast('반복업무가 저장됐어요');
 }
 
-function deleteRecurring(i){
-  const list=loadRecurring();
+async function deleteRecurring(i){
+  showLoading('삭제 중...');
+  const list=await loadRecurring();
   list.splice(i,1);
-  saveRecurring_list(list);
+  await saveRecurring_list(list);
+  hideLoading();
+  recurringCache=null;
   renderRecurring();
   toast('삭제됐어요');
 }
@@ -2155,7 +2212,7 @@ async function injectRecurringTasks(){
   const lastInjected=localStorage.getItem(REC_INJECTED_KEY);
   if(lastInjected===today)return; // 오늘 이미 실행됨
 
-  const list=loadRecurring();
+  const list=await loadRecurring();
   if(!list.length){localStorage.setItem(REC_INJECTED_KEY,today);return;}
 
   const [y,m,d]=today.split('-').map(Number);
@@ -2208,6 +2265,62 @@ async function injectRecurringTasks(){
     toast(`🔁 반복업무 ${added}개가 오늘 일정에 추가됐어요`);
   }
   localStorage.setItem(REC_INJECTED_KEY,today);
+}
+
+/* ── 등록 즉시 다음 주기에 미리 추가 ── */
+async function injectRecurringToNextDate(rec){
+  const nextDate=getNextRecurringDate(rec);
+  if(!nextDate)return;
+  const dayData=await fetchDay(nextDate);
+  dayData.tasks=dayData.tasks||[];
+  const already=dayData.tasks.some(t=>t.isRecurring&&t.name===rec.name);
+  if(already)return;
+  dayData.tasks.push({
+    category:rec.category||'',name:rec.name,priority:rec.priority||3,
+    done:false,note:'',isRecurring:true,
+    minutesTitle:'',minutesDatetime:'',minutesAttendees:'',minutesContent:'',minutesAction:''
+  });
+  await saveDay(nextDate,dayData);
+  // 오늘 날짜면 화면 갱신
+  if(nextDate===curDate){curDay=dayData;renderToday();}
+  toast(`🔁 ${nextDate} 에 "${rec.name}" 이 미리 추가됐어요`);
+}
+
+function getNextRecurringDate(rec){
+  const today=todayStr();
+  const [y,m,d]=today.split('-').map(Number);
+
+  if(rec.type==='weekly'){
+    // 오늘 포함 앞으로 7일 중 해당 요일 첫 날
+    for(let i=0;i<=7;i++){
+      const s=addDays(today,i);
+      const dt=new Date(s.split('-').map(Number)[0],s.split('-').map(Number)[1]-1,s.split('-').map(Number)[2]);
+      const dow=dt.getDay();
+      if((rec.dows||[]).includes(dow)&&isWorkday(s))return s;
+    }
+    return null;
+  }
+  if(rec.type==='monthly-date'){
+    // 이번 달 해당 날짜, 이미 지났으면 다음 달
+    const thisDate=`${y}-${pad(m)}-${pad(Math.min(rec.monthday,new Date(y,m,0).getDate()))}`;
+    if(thisDate>=today)return isWorkday(thisDate)?thisDate:nextWorkday(addDays(thisDate,-1));
+    const nm=m===12?1:m+1;const ny=m===12?y+1:y;
+    const nextDate=`${ny}-${pad(nm)}-${pad(Math.min(rec.monthday,new Date(ny,nm,0).getDate()))}`;
+    return isWorkday(nextDate)?nextDate:nextWorkday(addDays(nextDate,-1));
+  }
+  if(rec.type==='monthly-first'){
+    const first=getFirstWorkday(y,m);
+    if(first>=today)return first;
+    const nm=m===12?1:m+1;const ny=m===12?y+1:y;
+    return getFirstWorkday(ny,nm);
+  }
+  if(rec.type==='monthly-last'){
+    const last=getLastWorkday(y,m);
+    if(last>=today)return last;
+    const nm=m===12?1:m+1;const ny=m===12?y+1:y;
+    return getLastWorkday(ny,nm);
+  }
+  return null;
 }
 
 function getFirstWorkday(y,m){

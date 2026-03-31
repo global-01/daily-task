@@ -328,7 +328,7 @@
 <!-- SETUP SCREEN -->
 <div id="setup-screen" class="setup-screen" style="display:none;">
   <div class="setup-card">
-    <div class="setup-logo">📋 Daily</div>
+    <div class="setup-logo">📋Daily</div>
     <div class="setup-title">Google Sheets 연동 설정</div>
     <div class="setup-sub">아래 단계를 따라 설정하면 어떤 기기에서든 동일한 데이터를 쓸 수 있어요.</div>
     <div class="setup-step"><div class="setup-step-num">1</div><div class="setup-step-text"><strong>Google 시트 만들기</strong><br><a href="https://sheets.new" target="_blank" style="color:var(--accent);">sheets.new</a> 를 새 탭에서 열어 빈 구글 시트를 만드세요.</div></div>
@@ -700,10 +700,10 @@ function getSBHeaders(){
 }
 
 /* ── AUTH 함수 ── */
-async function signInWithGoogle(){
-  const res=await fetch(`${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(location.href)}`,{headers:{'apikey':SB_KEY}});
-  // Supabase OAuth: 직접 리디렉트
-  location.href=`${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(location.href)}`;
+function signInWithGoogle(){
+  const redirectTo=location.origin+location.pathname;
+  const url=`${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  window.location.assign(url);
 }
 
 async function signOut(){

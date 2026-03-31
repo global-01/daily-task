@@ -280,6 +280,17 @@
   .empty-state{text-align:center;padding:40px 24px;color:var(--text3)}
 
 
+  /* ── MEMO LIST ── */
+  .memo-list-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:10px;cursor:pointer;transition:all .18s;}
+  .memo-list-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow2);}
+  .memo-list-date{font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .memo-list-agenda{font-size:11px;color:var(--text3);}
+  .memo-list-body{font-size:13px;color:var(--text);line-height:1.7;margin-top:8px;white-space:pre-wrap;word-break:break-all;}
+  .memo-list-tasks{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+  .memo-task-chip{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent-soft);color:var(--accent2);}
+  .memo-task-chip.done{background:var(--green-soft);color:var(--green);}
+  .highlight{background:#fff3cd;border-radius:2px;padding:0 1px;}
+
   /* ── STATS ENHANCED ── */
   .stat-row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
   .pri-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -328,7 +339,7 @@
 <!-- SETUP SCREEN -->
 <div id="setup-screen" class="setup-screen" style="display:none;">
   <div class="setup-card">
-    <div class="setup-logo">📑 Daily</div>
+    <div class="setup-logo">📋 Daily</div>
     <div class="setup-title">Google Sheets 연동 설정</div>
     <div class="setup-sub">아래 단계를 따라 설정하면 어떤 기기에서든 동일한 데이터를 쓸 수 있어요.</div>
     <div class="setup-step"><div class="setup-step-num">1</div><div class="setup-step-text"><strong>Google 시트 만들기</strong><br><a href="https://sheets.new" target="_blank" style="color:var(--accent);">sheets.new</a> 를 새 탭에서 열어 빈 구글 시트를 만드세요.</div></div>
@@ -347,7 +358,7 @@
 <!-- LOGIN SCREEN -->
 <div id="login-screen" style="display:none;min-height:100vh;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow2);width:100%;max-width:400px;padding:40px;text-align:center;">
-    <div style="font-family:'Noto Serif KR','Georgia',serif;font-size:28px;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;">📑 Daily</div>
+    <div style="font-family:'Noto Serif KR','Georgia',serif;font-size:28px;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;">📋 Daily</div>
     <div style="font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text);">일일 업무 관리</div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:32px;line-height:1.6;">구글 계정으로 로그인하면<br>어떤 기기에서든 내 업무를 확인할 수 있어요.</div>
     <button onclick="signInWithGoogle()" style="width:100%;padding:13px 20px;background:white;border:1.5px solid var(--border2);border-radius:var(--r2);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;box-shadow:var(--shadow);" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
@@ -362,7 +373,7 @@
 <!-- MAIN APP -->
 <div id="main-app" style="display:none;">
   <header class="app-header">
-    <div class="app-logo">📑 Daily</div>
+    <div class="app-logo">📋 Daily</div>
     <nav class="header-nav">
       <button class="nav-btn active" onclick="showView('today')">오늘</button>
       <button class="nav-btn" onclick="showView('calendar')">캘린더</button>
@@ -463,11 +474,38 @@
 
     <!-- HISTORY -->
     <div class="view" id="view-history">
-      <div style="display:flex;align-items:center;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
         <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">기록</h2>
+        <div class="period-tabs">
+          <button class="ptab active" onclick="setHistTab('list',this)">날짜별 기록</button>
+          <button class="ptab" onclick="setHistTab('memo',this)">특이사항 모아보기</button>
+        </div>
       </div>
-      <div class="hist-grid" id="hist-list"></div>
-      <div class="empty-state" id="hist-empty" style="display:none;"><p>아직 저장된 기록이 없어요</p></div>
+
+      <!-- 날짜별 기록 탭 -->
+      <div id="hist-tab-list">
+        <div class="hist-grid" id="hist-list"></div>
+        <div class="empty-state" id="hist-empty" style="display:none;"><p>아직 저장된 기록이 없어요</p></div>
+      </div>
+
+      <!-- 특이사항 모아보기 탭 -->
+      <div id="hist-tab-memo" style="display:none;">
+        <!-- 검색 바 -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;position:relative;">
+            <input id="memo-search-input" type="text" placeholder="키워드 또는 업무명으로 검색..." oninput="filterMemos()"
+              style="width:100%;border:1px solid var(--border2);border-radius:var(--r2);padding:9px 14px 9px 36px;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
+          </div>
+          <select id="memo-task-filter" onchange="filterMemos()"
+            style="border:1px solid var(--border2);border-radius:var(--r2);padding:9px 12px;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--text2);background:var(--surface);outline:none;cursor:pointer;min-width:140px;">
+            <option value="">전체 업무</option>
+          </select>
+        </div>
+        <div id="memo-result-count" style="font-size:12px;color:var(--text3);margin-bottom:10px;"></div>
+        <div id="memo-list"></div>
+        <div class="empty-state" id="memo-empty" style="display:none;"><p>특이사항이 없어요</p></div>
+      </div>
     </div>
 
     <!-- STATS -->
@@ -1283,6 +1321,18 @@ document.getElementById('note-view-modal').addEventListener('click',e=>{if(e.tar
 /* ═══════════════════════════════════════
    HISTORY
 ═══════════════════════════════════════ */
+let curHistTab='list';
+let histFullData=[]; // 특이사항용 상세 데이터
+
+function setHistTab(tab,btn){
+  curHistTab=tab;
+  btn.closest('.period-tabs').querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('hist-tab-list').style.display=tab==='list'?'block':'none';
+  document.getElementById('hist-tab-memo').style.display=tab==='memo'?'block':'none';
+  if(tab==='memo')renderMemoList();
+}
+
 async function renderHistory(){
   showLoading('기록 불러오는 중...');
   const list=await fetchList();
@@ -1308,6 +1358,92 @@ async function renderHistory(){
       <div><div class="hist-rate">${rate}%</div><div class="hist-cnt">${item.summary.done}/${item.summary.total}</div></div>
     `;
     card.onclick=async()=>{curDate=item.date;await loadDay(curDate);showView('today');};
+    el.appendChild(card);
+  });
+}
+
+/* ── 특이사항 모아보기 ── */
+async function renderMemoList(){
+  if(histFullData.length===0){
+    showLoading('특이사항 불러오는 중...');
+    const list=await fetchList();
+    // 메모가 있는 날만 상세 로드
+    const withMemo=list.filter(item=>item.summary&&item.summary.total>0);
+    const details=await Promise.all(withMemo.map(item=>fetchDay(item.date)));
+    histFullData=withMemo.map((item,i)=>({
+      date:item.date,
+      agenda:item.summary.agenda||'',
+      memo:details[i]?.memo||'',
+      tasks:details[i]?.tasks||[]
+    })).filter(d=>d.memo&&d.memo.trim());
+    hideLoading();
+
+    // 업무 필터 옵션 채우기
+    const taskNames=new Set();
+    histFullData.forEach(d=>d.tasks.forEach(t=>{if(t.name)taskNames.add(t.name);}));
+    const sel=document.getElementById('memo-task-filter');
+    sel.innerHTML='<option value="">전체 업무</option>';
+    [...taskNames].sort().forEach(name=>{
+      const opt=document.createElement('option');
+      opt.value=name;opt.textContent=name;
+      sel.appendChild(opt);
+    });
+  }
+  filterMemos();
+}
+
+function filterMemos(){
+  const keyword=(document.getElementById('memo-search-input')?.value||'').trim().toLowerCase();
+  const taskFilter=(document.getElementById('memo-task-filter')?.value||'');
+  const el=document.getElementById('memo-list');
+  const empty=document.getElementById('memo-empty');
+  const countEl=document.getElementById('memo-result-count');
+  if(!el)return;
+  el.innerHTML='';
+
+  let filtered=histFullData.filter(d=>{
+    const memoMatch=!keyword||d.memo.toLowerCase().includes(keyword)||d.agenda.toLowerCase().includes(keyword);
+    const taskMatch=!taskFilter||d.tasks.some(t=>t.name===taskFilter);
+    return memoMatch&&taskMatch;
+  });
+
+  if(!filtered.length){
+    empty.style.display='block';
+    countEl.textContent='';
+    return;
+  }
+  empty.style.display='none';
+  countEl.textContent=`총 ${filtered.length}개의 특이사항`;
+
+  filtered.forEach(d=>{
+    const[y,m,dd]=d.date.split('-').map(Number);
+    const dt=new Date(y,m-1,dd);
+    const card=document.createElement('div');
+    card.className='memo-list-card';
+
+    // 키워드 하이라이트
+    const highlightText=(text)=>{
+      if(!keyword)return esc(text);
+      return esc(text).replace(new RegExp(esc(keyword),'gi'),match=>`<span class="highlight">${match}</span>`);
+    };
+
+    // 연결된 업무 (taskFilter가 있으면 해당 업무만, 없으면 최대 4개)
+    const relTasks=taskFilter
+      ?d.tasks.filter(t=>t.name===taskFilter)
+      :d.tasks.slice(0,4);
+
+    card.innerHTML=`
+      <div class="memo-list-date">
+        ${d.date} (${DAYS[dt.getDay()]}요일)
+        ${d.agenda?`<span class="memo-list-agenda">· ${esc(d.agenda)}</span>`:''}
+      </div>
+      <div class="memo-list-body">${highlightText(d.memo)}</div>
+      ${relTasks.length?`<div class="memo-list-tasks">
+        ${relTasks.map(t=>`<span class="memo-task-chip ${t.done?'done':''}">${t.done?'✓ ':''  }${esc(t.name)}</span>`).join('')}
+        ${!taskFilter&&d.tasks.length>4?`<span class="memo-task-chip">+${d.tasks.length-4}개</span>`:''}
+      </div>`:''}
+    `;
+    card.onclick=async()=>{curDate=d.date;await loadDay(curDate);showView('today');};
     el.appendChild(card);
   });
 }
@@ -1798,7 +1934,7 @@ function showView(v){
   const idx={today:0,calendar:1,history:2,stats:3}[v];
   document.querySelectorAll('.nav-btn')[idx].classList.add('active');
   if(v==='calendar')renderCalendar();
-  if(v==='history')renderHistory();
+  if(v==='history'){histFullData=[];renderHistory();}
   if(v==='stats'){
     // 모든 서브탭 중 overview만 표시
     ['overview','priority','category','carry','weekday','minutes'].forEach(t=>{

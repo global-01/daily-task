@@ -280,6 +280,14 @@
   .empty-state{text-align:center;padding:40px 24px;color:var(--text3)}
 
 
+  /* ── RECURRING ── */
+  .rec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
+  .rec-badge{font-size:11px;padding:3px 9px;border-radius:10px;background:var(--blue-soft);color:var(--blue);font-weight:600;white-space:nowrap;flex-shrink:0;}
+  .rec-name{font-size:13px;font-weight:500;color:var(--text);flex:1;}
+  .rec-cat{font-size:11px;color:var(--text3);}
+  .rec-del{width:24px;height:24px;border:none;background:transparent;color:var(--text3);font-size:16px;cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .rec-del:hover{background:var(--red-soft);color:var(--red);}
+
   /* ── MEMO LIST ── */
   .memo-list-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:10px;cursor:pointer;transition:all .18s;}
   .memo-list-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow2);}
@@ -379,6 +387,7 @@
       <button class="nav-btn" onclick="showView('calendar')">캘린더</button>
       <button class="nav-btn" onclick="showView('history')">기록</button>
       <button class="nav-btn" onclick="showView('stats')">통계</button>
+      <button class="nav-btn" onclick="showView('recurring')">반복업무</button>
     </nav>
     <div class="header-right">
       <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">연결됨</span></div>
@@ -604,7 +613,70 @@
       </div>
     </div>
 
+
+    <!-- RECURRING -->
+    <div class="view" id="view-recurring">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+        <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">반복업무</h2>
+        <button onclick="openRecurringModal()" style="padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:var(--r2);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s;" onmouseover="this.style.background='var(--accent2)'" onmouseout="this.style.background='var(--accent)'">+ 반복업무 추가</button>
+      </div>
+      <div style="background:var(--blue-soft);border:1px solid var(--blue);border-radius:var(--r2);padding:12px 16px;font-size:12px;color:var(--blue);margin-bottom:18px;line-height:1.6;">
+        💡 등록한 반복업무는 해당일 자정에 오늘 할 일에 자동 추가돼요. 완료 체크는 매일 초기화돼요.
+      </div>
+      <div id="recurring-list"></div>
+      <div class="empty-state" id="recurring-empty" style="display:none;">
+        <p>등록된 반복업무가 없어요<br><span style="font-size:12px;">+ 반복업무 추가 버튼으로 등록해 보세요</span></p>
+      </div>
+    </div>
+
   </main>
+</div>
+
+<!-- 반복업무 모달 -->
+<div class="overlay" id="recurring-modal">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="recurring-modal-title">반복업무 추가</h3><button class="modal-x" onclick="closeRecurringModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="m-lbl">구분</div>
+      <input class="m-input" id="r-category" placeholder="예: 홀카페 (선택)">
+      <div class="m-lbl">업무 내용</div>
+      <input class="m-input" id="r-name" placeholder="반복 업무 내용을 입력하세요">
+      <div class="m-lbl">우선순위</div>
+      <select class="m-input" id="r-priority" style="cursor:pointer;">
+        <option value="4">🔴 최우선</option>
+        <option value="3" selected>🟠 높음</option>
+        <option value="2">🟡 보통</option>
+        <option value="1">🟢 낮음</option>
+      </select>
+      <div class="m-lbl">반복 주기</div>
+      <select class="m-input" id="r-type" onchange="updateRecurringTypeUI()" style="cursor:pointer;">
+        <option value="weekly">매주 특정 요일</option>
+        <option value="monthly-date">매월 특정 날짜</option>
+        <option value="monthly-first">매월 첫째 업무일</option>
+        <option value="monthly-last">매월 마지막 업무일</option>
+      </select>
+      <!-- 매주 요일 선택 -->
+      <div id="r-weekly-wrap" style="margin-top:10px;">
+        <div class="m-lbl">요일 선택 (복수 선택 가능)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" value="1" class="r-dow"> 월</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" value="2" class="r-dow"> 화</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" value="3" class="r-dow"> 수</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" value="4" class="r-dow"> 목</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" value="5" class="r-dow"> 금</label>
+        </div>
+      </div>
+      <!-- 매월 날짜 선택 -->
+      <div id="r-monthly-wrap" style="margin-top:10px;display:none;">
+        <div class="m-lbl">날짜 (1~31)</div>
+        <input class="m-input" id="r-monthday" type="number" min="1" max="31" placeholder="예: 15">
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-sec" onclick="closeRecurringModal()">취소</button>
+      <button class="btn-pri" onclick="saveRecurring()">저장</button>
+    </div>
+  </div>
 </div>
 
 <!-- 회의록 모달 -->
@@ -951,6 +1023,7 @@ async function init(){
   showMainApp();
   await loadDay(curDate);
   checkAndCarryOver();
+  injectRecurringTasks();
 }
 
 async function loadDay(date){
@@ -1015,12 +1088,13 @@ function renderTasks(){
     } else {
       tr.className='task-row'+(t.done?' done':'');
       const carryBadge=t.carriedFrom?`<span class="carry-badge">🔄${t.carriedFrom}</span>`:'';
+      const recBadge=t.isRecurring?`<span style="font-size:10px;background:var(--blue-soft);color:var(--blue);padding:2px 6px;border-radius:8px;white-space:nowrap;">🔁 반복</span>`:'';
       tr.innerHTML=`
         <td style="text-align:center;font-size:11px;color:var(--text3);">${i+1}</td>
         <td><div class="task-name-wrap">
           <div class="chk ${t.done?'on':''}" onclick="toggleTask(${i})"></div>
           <span class="task-name">${esc(t.category?`[${t.category}] `:'')+esc(t.name)}</span>
-          ${carryBadge}
+          ${carryBadge}${recBadge}
           ${t.minutesTitle?`<span class="minutes-tag" onclick="openMin(${i})">📝 회의록</span>`:`<span class="minutes-add" onclick="openMin(${i})">+ 회의록</span>`}
         </div></td>
         <td>${priBlocks(t.priority)}</td>
@@ -1946,6 +2020,219 @@ async function checkAndCarryOver(){
   localStorage.setItem(CARRY_KEY,today);
 }
 
+
+/* ═══════════════════════════════════════
+   반복업무
+═══════════════════════════════════════ */
+const REC_KEY='daily_recurring_v1'; // localStorage에 저장 (기기별)
+
+function loadRecurring(){
+  try{return JSON.parse(localStorage.getItem(REC_KEY))||[];}catch{return[];}
+}
+function saveRecurring_list(list){
+  localStorage.setItem(REC_KEY,JSON.stringify(list));
+}
+
+/* ── 반복업무 렌더 ── */
+function renderRecurring(){
+  const list=loadRecurring();
+  const el=document.getElementById('recurring-list');
+  const empty=document.getElementById('recurring-empty');
+  el.innerHTML='';
+  if(!list.length){empty.style.display='block';return;}
+  empty.style.display='none';
+  list.forEach((r,i)=>{
+    const card=document.createElement('div');
+    card.className='rec-card';
+    card.innerHTML=`
+      <span class="rec-badge">${getRecLabel(r)}</span>
+      <div>
+        <div class="rec-name">${r.category?`[${esc(r.category)}] `:''}${esc(r.name)}</div>
+        <div class="rec-cat">${getPriIcon(r.priority)} ${getRecDesc(r)}</div>
+      </div>
+      <button class="rec-del" onclick="deleteRecurring(${i})" title="삭제">×</button>
+    `;
+    el.appendChild(card);
+  });
+}
+
+function getRecLabel(r){
+  if(r.type==='weekly')return'매주';
+  if(r.type==='monthly-date')return`매월 ${r.monthday}일`;
+  if(r.type==='monthly-first')return'매월 첫 업무일';
+  if(r.type==='monthly-last')return'매월 말 업무일';
+  return'반복';
+}
+function getRecDesc(r){
+  if(r.type==='weekly'){
+    const names=['','월','화','수','목','금'];
+    return (r.dows||[]).map(d=>names[d]+'요일').join(',');
+  }
+  if(r.type==='monthly-date')return`매월 ${r.monthday}일에 추가`;
+  if(r.type==='monthly-first')return'매월 첫 업무일에 추가';
+  if(r.type==='monthly-last')return'매월 마지막 업무일에 추가';
+  return'';
+}
+function getPriIcon(p){return['','🟢','🟡','🟠','🔴'][p]||'🟡';}
+
+/* ── 모달 열기/닫기 ── */
+let editRecurringIdx=null;
+
+function openRecurringModal(idx){
+  editRecurringIdx=idx!==undefined?idx:null;
+  const title=idx!==undefined?'반복업무 수정':'반복업무 추가';
+  document.getElementById('recurring-modal-title').textContent=title;
+  if(idx!==undefined){
+    const r=loadRecurring()[idx];
+    document.getElementById('r-category').value=r.category||'';
+    document.getElementById('r-name').value=r.name||'';
+    document.getElementById('r-priority').value=r.priority||3;
+    document.getElementById('r-type').value=r.type||'weekly';
+    document.getElementById('r-monthday').value=r.monthday||'';
+    document.querySelectorAll('.r-dow').forEach(cb=>{cb.checked=(r.dows||[]).includes(parseInt(cb.value));});
+  } else {
+    document.getElementById('r-category').value='';
+    document.getElementById('r-name').value='';
+    document.getElementById('r-priority').value=3;
+    document.getElementById('r-type').value='weekly';
+    document.getElementById('r-monthday').value='';
+    document.querySelectorAll('.r-dow').forEach(cb=>{cb.checked=false;});
+  }
+  updateRecurringTypeUI();
+  document.getElementById('recurring-modal').classList.add('open');
+}
+function closeRecurringModal(){document.getElementById('recurring-modal').classList.remove('open');editRecurringIdx=null;}
+document.getElementById('recurring-modal').addEventListener('click',e=>{if(e.target===document.getElementById('recurring-modal'))closeRecurringModal();});
+
+function updateRecurringTypeUI(){
+  const type=document.getElementById('r-type').value;
+  document.getElementById('r-weekly-wrap').style.display=type==='weekly'?'block':'none';
+  document.getElementById('r-monthly-wrap').style.display=type==='monthly-date'?'block':'none';
+}
+
+function saveRecurring(){
+  const name=document.getElementById('r-name').value.trim();
+  if(!name){toast('업무 내용을 입력해 주세요');return;}
+  const type=document.getElementById('r-type').value;
+  const rec={
+    category:document.getElementById('r-category').value.trim(),
+    name,
+    priority:parseInt(document.getElementById('r-priority').value),
+    type,
+  };
+  if(type==='weekly'){
+    const dows=[...document.querySelectorAll('.r-dow:checked')].map(cb=>parseInt(cb.value));
+    if(!dows.length){toast('요일을 하나 이상 선택해 주세요');return;}
+    rec.dows=dows;
+  }
+  if(type==='monthly-date'){
+    const d=parseInt(document.getElementById('r-monthday').value);
+    if(!d||d<1||d>31){toast('날짜를 1~31 사이로 입력해 주세요');return;}
+    rec.monthday=d;
+  }
+  const list=loadRecurring();
+  if(editRecurringIdx!==null)list[editRecurringIdx]=rec;
+  else list.push(rec);
+  saveRecurring_list(list);
+  closeRecurringModal();
+  renderRecurring();
+  toast('반복업무가 저장됐어요');
+}
+
+function deleteRecurring(i){
+  const list=loadRecurring();
+  list.splice(i,1);
+  saveRecurring_list(list);
+  renderRecurring();
+  toast('삭제됐어요');
+}
+
+/* ── 자정 반복업무 주입 ── */
+const REC_INJECTED_KEY='daily_rec_injected';
+
+async function injectRecurringTasks(){
+  const today=todayStr();
+  const lastInjected=localStorage.getItem(REC_INJECTED_KEY);
+  if(lastInjected===today)return; // 오늘 이미 실행됨
+
+  const list=loadRecurring();
+  if(!list.length){localStorage.setItem(REC_INJECTED_KEY,today);return;}
+
+  const [y,m,d]=today.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const dow=dt.getDay(); // 0=일, 1=월 ... 6=토
+
+  // 오늘에 해당하는 반복업무 필터
+  const toAdd=list.filter(r=>{
+    if(r.type==='weekly')return (r.dows||[]).includes(dow);
+    if(r.type==='monthly-date')return d===r.monthday;
+    if(r.type==='monthly-first'){
+      // 이번 달 첫 번째 업무일
+      const firstWork=getFirstWorkday(y,m);
+      return today===firstWork;
+    }
+    if(r.type==='monthly-last'){
+      // 이번 달 마지막 업무일
+      const lastWork=getLastWorkday(y,m);
+      return today===lastWork;
+    }
+    return false;
+  });
+
+  if(!toAdd.length){localStorage.setItem(REC_INJECTED_KEY,today);return;}
+
+  const dayData=await fetchDay(today);
+  dayData.tasks=dayData.tasks||[];
+
+  // 이미 이 반복업무가 오늘 들어있는지 확인 (이름+recurring 플래그)
+  const existingNames=new Set(dayData.tasks.filter(t=>t.isRecurring).map(t=>t.name));
+  let added=0;
+  toAdd.forEach(r=>{
+    if(!existingNames.has(r.name)){
+      dayData.tasks.push({
+        category:r.category||'',
+        name:r.name,
+        priority:r.priority||3,
+        done:false,
+        note:'',
+        isRecurring:true,
+        minutesTitle:'',minutesDatetime:'',minutesAttendees:'',minutesContent:'',minutesAction:''
+      });
+      added++;
+    }
+  });
+
+  if(added>0){
+    await saveDay(today,dayData);
+    if(curDate===today){curDay=dayData;renderToday();}
+    toast(`🔁 반복업무 ${added}개가 오늘 일정에 추가됐어요`);
+  }
+  localStorage.setItem(REC_INJECTED_KEY,today);
+}
+
+function getFirstWorkday(y,m){
+  // 해당 월의 첫 업무일 (주말/공휴일 제외)
+  let d=1;
+  while(d<=7){
+    const s=`${y}-${pad(m)}-${pad(d)}`;
+    if(isWorkday(s))return s;
+    d++;
+  }
+  return `${y}-${pad(m)}-01`;
+}
+
+function getLastWorkday(y,m){
+  // 해당 월의 마지막 날부터 역순으로 첫 업무일
+  const lastDay=new Date(y,m,0).getDate();
+  let d=lastDay;
+  while(d>=1){
+    const s=`${y}-${pad(m)}-${pad(d)}`;
+    if(isWorkday(s))return s;
+    d--;
+  }
+  return `${y}-${pad(m)}-${pad(lastDay)}`;
+}
+
 /* ═══════════════════════════════════════
    VIEW SWITCHING
 ═══════════════════════════════════════ */
@@ -1953,10 +2240,11 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  const idx={today:0,calendar:1,history:2,stats:3}[v];
+  const idx={today:0,calendar:1,history:2,stats:3,recurring:4}[v];
   document.querySelectorAll('.nav-btn')[idx].classList.add('active');
   if(v==='calendar')renderCalendar();
   if(v==='history'){histFullData=[];renderHistory();}
+  if(v==='recurring')renderRecurring();
   if(v==='stats'){
     // 모든 서브탭 중 overview만 표시
     ['overview','priority','category','carry','weekday','minutes'].forEach(t=>{

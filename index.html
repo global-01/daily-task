@@ -841,20 +841,30 @@ async function sbSet(date,data){
   if(!currentSession?.user?.id){toast('⚠️ 로그인이 필요해요.');return false;}
   try{
     setSyncStatus('syncing');
-    // upsert: 있으면 update, 없으면 insert
-    const res=await fetch(`${SB_URL}/rest/v1/daily_tasks`,{
-      method:'POST',
-      headers:{
-        ...getSBHeaders(),
-        'Prefer':'resolution=merge-duplicates,return=minimal'
-      },
-      body:JSON.stringify({user_id:currentSession.user.id,date,data})
-    });
-    // 201 Created or 200 OK or 204 No Content = 성공
-    if(res.status===201||res.status===200||res.status===204){
+    const uid=currentSession.user.id;
+    // 먼저 존재하는지 확인
+    const chk=await fetch(
+      `${SB_URL}/rest/v1/daily_tasks?user_id=eq.${uid}&date=eq.${date}&select=id`,
+      {headers:getSBHeaders()}
+    );
+    const existing=await chk.json();
+    let res;
+    if(existing&&existing.length>0){
+      // UPDATE
+      res=await fetch(
+        `${SB_URL}/rest/v1/daily_tasks?user_id=eq.${uid}&date=eq.${date}`,
+        {method:'PATCH',headers:{...getSBHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({data})}
+      );
+    } else {
+      // INSERT
+      res=await fetch(
+        `${SB_URL}/rest/v1/daily_tasks`,
+        {method:'POST',headers:{...getSBHeaders(),'Prefer':'return=minimal'},body:JSON.stringify({user_id:uid,date,data})}
+      );
+    }
+    if(res.status===200||res.status===201||res.status===204){
       setSyncStatus('ok');return true;
     }
-    // 에러 내용 확인
     const errText=await res.text().catch(()=>'');
     console.error('sbSet error:',res.status,errText);
     setSyncStatus('error');return false;

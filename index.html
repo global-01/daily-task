@@ -824,31 +824,50 @@ function cacheSet(k,v){try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'
 
 /* ─ SUPABASE API ─ */
 async function sbGet(date){
+  if(!currentSession?.user?.id)return null;
   try{
     setSyncStatus('syncing');
-    const res=await fetch(`${SB_URL}/rest/v1/daily_tasks?date=eq.${date}&select=data`,{headers:getSBHeaders()});
+    const res=await fetch(
+      `${SB_URL}/rest/v1/daily_tasks?user_id=eq.${currentSession.user.id}&date=eq.${date}&select=data`,
+      {headers:getSBHeaders()}
+    );
+    if(!res.ok){setSyncStatus('error');return null;}
     const rows=await res.json();
     setSyncStatus('ok');
     return rows&&rows.length?rows[0].data:null;
   }catch(e){setSyncStatus('error');return null;}
 }
 async function sbSet(date,data){
-  if(!currentSession?.user?.id)return false;
+  if(!currentSession?.user?.id){toast('⚠️ 로그인이 필요해요.');return false;}
   try{
     setSyncStatus('syncing');
+    // upsert: 있으면 update, 없으면 insert
     const res=await fetch(`${SB_URL}/rest/v1/daily_tasks`,{
       method:'POST',
-      headers:{...getSBHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+      headers:{
+        ...getSBHeaders(),
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
       body:JSON.stringify({user_id:currentSession.user.id,date,data})
     });
-    setSyncStatus('ok');
-    return res.ok;
-  }catch(e){setSyncStatus('error');return false;}
+    // 201 Created or 200 OK or 204 No Content = 성공
+    if(res.status===201||res.status===200||res.status===204){
+      setSyncStatus('ok');return true;
+    }
+    // 에러 내용 확인
+    const errText=await res.text().catch(()=>'');
+    console.error('sbSet error:',res.status,errText);
+    setSyncStatus('error');return false;
+  }catch(e){
+    console.error('sbSet exception:',e);
+    setSyncStatus('error');return false;
+  }
 }
 async function sbList(){
   try{
     setSyncStatus('syncing');
-    const res=await fetch(`${SB_URL}/rest/v1/daily_tasks?select=date,data&order=date.desc`,{headers:getSBHeaders()});
+    if(!currentSession?.user?.id)return null;
+    const res=await fetch(`${SB_URL}/rest/v1/daily_tasks?user_id=eq.${currentSession.user.id}&select=date,data&order=date.desc`,{headers:getSBHeaders()});
     const rows=await res.json();
     setSyncStatus('ok');
     return (rows||[]).map(r=>({date:r.date,summary:getSummaryFromData(r.data)}));
@@ -858,7 +877,8 @@ async function sbListMonth(year,month){
   try{
     setSyncStatus('syncing');
     const prefix=year+'-'+String(month).padStart(2,'0');
-    const res=await fetch(`${SB_URL}/rest/v1/daily_tasks?date=like.${prefix}*&select=date,data&order=date.asc`,{headers:getSBHeaders()});
+    if(!currentSession?.user?.id)return null;
+    const res=await fetch(`${SB_URL}/rest/v1/daily_tasks?user_id=eq.${currentSession.user.id}&date=like.${prefix}*&select=date,data&order=date.asc`,{headers:getSBHeaders()});
     const rows=await res.json();
     setSyncStatus('ok');
     return (rows||[]).map(r=>({date:r.date,summary:getSummaryFromData(r.data),tasks:getTasksForCal(r.data)}));

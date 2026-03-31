@@ -357,7 +357,7 @@
       <div class="section-card">
         <div class="section-head">
           <h3>✅ 할 일 목록</h3>
-          <span style="font-size:10px;color:var(--text3);">🟢 낮음 &nbsp;🟡 보통 &nbsp;🟠 높음 &nbsp;🔴 최우선</span>
+          <span style="font-size:10px;color:var(--text3);">■ 낮음 &nbsp;■■ 보통 &nbsp;■■■ 높음 &nbsp;■■■■ 최우선</span>
         </div>
         <table class="task-table">
           <thead><tr>
@@ -370,8 +370,8 @@
               <input class="add-input add-cat" id="nc" placeholder="구분">
               <input class="add-input" id="nt" placeholder="업무 내용 입력 후 Enter 또는 추가">
               <select class="pri-select" id="np">
-                <option value="1">🔴</option><option value="2">🟠</option>
-                <option value="3" selected>🟡</option><option value="4">🟢</option>
+                <option value="1">■</option><option value="2">■■</option>
+                <option value="3" selected>■■■</option><option value="4">■■■■</option>
               </select>
               <button class="add-btn" onclick="addTask()">+ 추가</button>
             </div>
@@ -379,8 +379,8 @@
         </table>
       </div>
       <div class="section-card">
-        <div class="section-head"><h3>💬 진행 특이사항</h3></div>
-        <textarea class="memo-ta" id="memo-inp" placeholder="미진행 사항 / 이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')"></textarea>
+        <div class="section-head"><h3>💬 회고</h3></div>
+        <textarea class="memo-ta" id="memo-inp" placeholder="잘한 점 / 보완할 점 / 배운 점을 자유롭게..." onblur="saveField('memo')"></textarea>
       </div>
     </div>
 
@@ -572,8 +572,9 @@ function getSummary(jsonStr){
    CONFIG
 ═══════════════════════════════════════ */
 const CFG_KEY='daily_cfg_v3';
-function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch{return{};}}
-function setCfg(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
+const FIXED_API_URL='https://script.google.com/macros/s/AKfycbwtrBrdAXwbORZa8HAL13C6KH653AGXYcKdZ7o3voicN8iDozL43apwkGLqMWvn-5KAtw/exec';
+function getCfg(){const saved=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');return{...saved,apiUrl:FIXED_API_URL};}
+function setCfg(c){localStorage.setItem(CFG_KEY,JSON.stringify({...c,apiUrl:FIXED_API_URL}));}
 
 function copyScript(){
   navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(()=>{
@@ -1078,12 +1079,9 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
    START
 ═══════════════════════════════════════ */
 (function(){
-  const cfg=getCfg();
-  if(cfg.apiUrl){
-    document.getElementById('setup-screen').style.display='none';
-    document.getElementById('main-app').style.display='block';
-    init();
-  }
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  init();
 })();
 </script>
 </body>

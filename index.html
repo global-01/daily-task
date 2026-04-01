@@ -648,8 +648,8 @@
     <div class="view" id="view-admin">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
         <div>
-          <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">👑 관리자</h2>
-          <div style="font-size:12px;color:var(--text3);margin-top:3px;">전체 팀 현황을 한눈에 확인해요</div>
+          <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">👑 관리자 <span id="admin-role-badge" style="font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;"></span></h2>
+          <div id="admin-role-desc" style="font-size:12px;color:var(--text3);margin-top:3px;">전체 팀 현황을 한눈에 확인해요</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <div class="period-tabs">
@@ -710,8 +710,8 @@
         <div id="admin-user-list" style="padding:14px 18px;"></div>
       </div>
 
-      <!-- 관리자 설정 -->
-      <div class="section-card">
+      <!-- 관리자 설정 (슈퍼 관리자만) -->
+      <div class="section-card" id="admin-settings-section">
         <div class="section-head"><h3>⚙️ 관리자 설정</h3></div>
         <div style="padding:14px 18px;">
           <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">관리자 이메일 추가/삭제</div>
@@ -2837,17 +2837,27 @@ let adminDateTo=null;
 let adminAllData=[]; // {email, user_id, days:[{date,data}]}
 
 /* ── 관리자 여부 확인 ── */
+let adminRole=''; // 'super' | 'team' | ''
+let adminAssignedTeam=''; // 팀 관리자의 담당 팀
+
 async function checkAdmin(){
   if(!currentSession?.user?.email)return false;
   try{
     const res=await fetch(
-      `${SB_URL}/rest/v1/admins?email=eq.${encodeURIComponent(currentSession.user.email)}&select=email`,
+      `${SB_URL}/rest/v1/admins?email=eq.${encodeURIComponent(currentSession.user.email)}&select=email,role,assigned_team`,
       {headers:getSBHeaders()}
     );
     const rows=await res.json();
-    return rows&&rows.length>0;
+    if(rows&&rows.length>0){
+      adminRole=rows[0].role||'team';
+      adminAssignedTeam=rows[0].assigned_team||'';
+      return true;
+    }
+    return false;
   }catch(e){return false;}
 }
+
+function isSuperAdmin(){return adminRole==='super';}
 
 /* ── 기간 설정 ── */
 function setAdminPeriod(p,btn){
@@ -2933,7 +2943,7 @@ async function loadAdminData(){
       tasksByUser[row.user_id].push({date:row.date,data:row.data});
     });
 
-    adminAllData=(users||[]).map(u=>({
+    let allUsers=(users||[]).map(u=>({
       email:u.email,
       user_id:u.user_id,
       name:userProfiles[u.user_id]?.name||u.email.split('@')[0],
@@ -2944,6 +2954,13 @@ async function loadAdminData(){
       last_active:u.last_active||'없음',
       days:tasksByUser[u.user_id]||[]
     }));
+
+    // 팀 관리자는 담당 팀만 볼 수 있음
+    if(!isSuperAdmin()&&adminAssignedTeam){
+      adminAllData=allUsers.filter(u=>u.team===adminAssignedTeam);
+    } else {
+      adminAllData=allUsers;
+    }
 
     renderAdminTeamFilter();
     renderAdminDashboard(from,to);
@@ -2977,6 +2994,24 @@ function getFilteredUsers(){
 
 /* ── 대시보드 렌더 ── */
 function renderAdminDashboard(from,to){
+  // 역할 배지 표시
+  const badge=document.getElementById('admin-role-badge');
+  const desc=document.getElementById('admin-role-desc');
+  if(badge){
+    if(isSuperAdmin()){
+      badge.textContent='슈퍼 관리자';
+      badge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;background:var(--red-soft);color:var(--red);font-weight:600;';
+      if(desc)desc.textContent='전체 팀 현황을 한눈에 확인해요';
+    } else {
+      badge.textContent=adminAssignedTeam?`팀 관리자 (${adminAssignedTeam})`:'팀 관리자';
+      badge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;background:var(--blue-soft);color:var(--blue);font-weight:600;';
+      if(desc)desc.textContent=adminAssignedTeam?`${adminAssignedTeam} 팀 현황을 확인해요`:'담당 팀 현황을 확인해요';
+    }
+  }
+  // 팀 필터는 슈퍼 관리자만 표시
+  const filterWrap=document.getElementById('admin-team-filter-wrap');
+  if(filterWrap)filterWrap.parentElement.style.display=isSuperAdmin()?'flex':'none';
+
   const filtered=getFilteredUsers();
   const totalUsers=filtered.length;
   const activeUsers=filtered.filter(u=>u.days.length>0).length;
@@ -3063,6 +3098,31 @@ function renderAdminDashboard(from,to){
 
   // 전체 사용자 목록 + 팀/이름 편집
   const userListEl=document.getElementById('admin-user-list');
+  // 팀 관리자는 팀원 목록만 보여줌 (이름/팀 수정 불가)
+  if(!isSuperAdmin()){
+    userListEl.innerHTML=`
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원 목록이에요.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:var(--surface2);">
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
+          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">기록 일수</th>
+          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">마지막 접속</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.map(u=>`
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 10px;font-weight:500;">${esc(u.name)}</td>
+              <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
+              <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.total_days}일</td>
+              <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+    loadAdminList();
+    return;
+  }
+
   userListEl.innerHTML=`
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">이름과 팀/파트를 설정하면 관리자 화면에서 구분해서 볼 수 있어요.</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -3084,6 +3144,10 @@ function renderAdminDashboard(from,to){
           </tr>`).join('')}
       </tbody>
     </table>`;
+
+  // 관리자 설정 섹션 슈퍼만 표시
+  const settingsSec=document.getElementById('admin-settings-section');
+  if(settingsSec)settingsSec.style.display=isSuperAdmin()?'block':'none';
 
   loadAdminList();
 }
@@ -3300,17 +3364,51 @@ async function adminDownloadAll(){
 
 /* ── 관리자 목록 관리 ── */
 async function loadAdminList(){
+  if(!isSuperAdmin())return; // 팀 관리자는 관리자 목록 못 봄
   try{
-    const res=await fetch(`${SB_URL}/rest/v1/admins?select=id,email,created_at&order=created_at.asc`,{headers:getSBHeaders()});
+    const res=await fetch(`${SB_URL}/rest/v1/admins?select=id,email,role,assigned_team,created_at&order=created_at.asc`,{headers:getSBHeaders()});
     const admins=await res.json();
     const el=document.getElementById('admin-list');
     if(!admins||!admins.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);">등록된 관리자가 없어요</div>';return;}
+
+    // 팀 목록 수집 (드롭다운용)
+    const teams=[...new Set(adminAllData.map(u=>u.team).filter(Boolean))].sort();
+    const teamOpts=`<option value="">전체(제한없음)</option>`+teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+
     el.innerHTML=admins.map(a=>`
-      <div class="admin-user-chip" style="margin-bottom:6px;">
-        <div style="font-size:13px;">${esc(a.email)}${a.email===currentSession?.user?.email?' <span style="font-size:10px;color:var(--accent);">(나)</span>':''}</div>
-        ${a.email!==currentSession?.user?.email?`<button onclick="removeAdmin('${a.id}','${esc(a.email)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:6px;cursor:pointer;">삭제</button>`:''}
+      <div class="admin-user-chip" style="margin-bottom:6px;flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:500;">${esc(a.email)}${a.email===currentSession?.user?.email?' <span style="font-size:10px;color:var(--accent);">(나)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">
+            ${a.role==='super'?'<span style="color:var(--red);font-weight:600;">슈퍼 관리자</span>':'<span style="color:var(--blue);">팀 관리자</span>'}
+            ${a.assigned_team&&a.role!=='super'?` · 담당: ${esc(a.assigned_team)}`:''}
+          </div>
+        </div>
+        ${a.role!=='super'?`
+          <select id="ateam_${a.id}" onchange="updateAdminTeam('${a.id}',this.value)" style="border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+            ${teamOpts}
+          </select>`:''}
+        ${a.email!==currentSession?.user?.email?`<button onclick="removeAdmin('${a.id}','${esc(a.email)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:6px;cursor:pointer;flex-shrink:0;">삭제</button>`:''}
       </div>`).join('');
+
+    // 저장된 담당팀 선택 반영
+    admins.forEach(a=>{
+      const sel=document.getElementById('ateam_'+a.id);
+      if(sel&&a.assigned_team)sel.value=a.assigned_team;
+    });
   }catch(e){console.error('loadAdminList:',e);}
+}
+
+async function updateAdminTeam(adminId,team){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/admins?id=eq.${adminId}`,{
+      method:'PATCH',
+      headers:{...getSBHeaders(),'Prefer':'return=minimal'},
+      body:JSON.stringify({assigned_team:team})
+    });
+    if(res.status===200||res.status===204){toast(`✅ 담당 팀이 '${team||'전체'}'로 설정됐어요`);}
+    else toast('저장 실패');
+  }catch(e){toast('오류: '+e.message);}
 }
 
 async function addAdmin(){

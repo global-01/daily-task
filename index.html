@@ -280,6 +280,18 @@
   .empty-state{text-align:center;padding:40px 24px;color:var(--text3)}
 
 
+  /* ── ADMIN ── */
+  .admin-user-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .admin-user-row:last-child{border-bottom:none;}
+  .admin-user-email{font-size:13px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .admin-rate-bar-wrap{width:140px;background:var(--border);border-radius:4px;height:8px;overflow:hidden;flex-shrink:0;}
+  .admin-rate-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .admin-rate-pct{font-size:12px;font-weight:600;color:var(--text);width:36px;text-align:right;flex-shrink:0;}
+  .admin-undone-item{background:var(--red-soft);border:1px solid var(--red);border-radius:var(--r2);padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .admin-undone-name{font-size:12px;color:var(--text);flex:1;}
+  .admin-undone-user{font-size:11px;color:var(--text3);}
+  .admin-user-chip{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:var(--r2);margin-bottom:6px;font-size:13px;}
+
   /* ── RECURRING ── */
   .rec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
   .rec-badge{font-size:11px;padding:3px 9px;border-radius:10px;background:var(--blue-soft);color:var(--blue);font-weight:600;white-space:nowrap;flex-shrink:0;}
@@ -389,6 +401,7 @@
       <button class="nav-btn" onclick="showView('history')">기록</button>
       <button class="nav-btn" onclick="showView('stats')">통계</button>
       <button class="nav-btn" onclick="showView('recurring')">반복업무</button>
+      <button class="nav-btn" id="admin-nav-btn" onclick="showView('admin')" style="display:none;background:var(--red-soft);color:var(--red);border:1px solid var(--red);">👑 관리자</button>
     </nav>
     <div class="header-right">
       <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">연결됨</span></div>
@@ -628,6 +641,78 @@
       <div id="recurring-list"></div>
       <div class="empty-state" id="recurring-empty" style="display:none;">
         <p>등록된 반복업무가 없어요<br><span style="font-size:12px;">+ 반복업무 추가 버튼으로 등록해 보세요</span></p>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="view" id="view-admin">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="font-family:'Noto Serif KR',serif;font-size:21px;">👑 관리자</h2>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px;">전체 팀 현황을 한눈에 확인해요</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <div class="period-tabs">
+            <button class="ptab active" onclick="setAdminPeriod('week',this)">이번 주</button>
+            <button class="ptab" onclick="setAdminPeriod('last',this)">지난 주</button>
+            <button class="ptab" onclick="setAdminPeriod('custom',this)">기간 선택</button>
+          </div>
+          <button onclick="adminDownloadAll()" style="padding:7px 14px;background:var(--green);color:white;border:none;border-radius:var(--r2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">📥 전체 Excel</button>
+        </div>
+      </div>
+
+      <!-- 기간 직접 선택 -->
+      <div id="admin-custom-range" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text2);">시작일</span>
+        <input type="date" id="admin-date-from" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;">
+        <span style="font-size:12px;color:var(--text2);">~</span>
+        <input type="date" id="admin-date-to" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;">
+        <button onclick="loadAdminData()" style="padding:5px 14px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;font-weight:600;">조회</button>
+      </div>
+
+      <!-- 요약 카드 -->
+      <div id="admin-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
+
+      <!-- 사용자 달성률 비교 -->
+      <div class="section-card" style="margin-bottom:16px;">
+        <div class="section-head"><h3>👥 사용자별 달성률</h3></div>
+        <div id="admin-user-rates" style="padding:14px 18px;"></div>
+      </div>
+
+      <!-- 미완료/이월 현황 -->
+      <div class="section-card" style="margin-bottom:16px;">
+        <div class="section-head"><h3>⚠️ 미완료 · 이월 현황</h3></div>
+        <div id="admin-undone-list" style="padding:14px 18px;"></div>
+      </div>
+
+      <!-- 사용자별 업무 목록 -->
+      <div class="section-card" style="margin-bottom:16px;">
+        <div class="section-head" style="justify-content:space-between;">
+          <h3>📋 사용자별 업무 목록</h3>
+          <select id="admin-user-select" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+            <option value="">사용자 선택</option>
+          </select>
+        </div>
+        <div id="admin-user-tasks" style="padding:0;"></div>
+      </div>
+
+      <!-- 접속 사용자 목록 -->
+      <div class="section-card">
+        <div class="section-head"><h3>🔑 전체 사용자 목록</h3></div>
+        <div id="admin-user-list" style="padding:14px 18px;"></div>
+      </div>
+
+      <!-- 관리자 설정 -->
+      <div class="section-card" style="margin-top:16px;">
+        <div class="section-head"><h3>⚙️ 관리자 설정</h3></div>
+        <div style="padding:14px 18px;">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">관리자 이메일 추가/삭제</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <input id="admin-add-email" class="add-input" placeholder="추가할 이메일 주소" style="flex:1;">
+            <button onclick="addAdmin()" class="add-btn">+ 추가</button>
+          </div>
+          <div id="admin-list"></div>
+        </div>
       </div>
     </div>
 
@@ -1062,6 +1147,12 @@ async function init(){
     return;
   }
   showMainApp();
+  // 관리자 여부 확인
+  isAdmin=await checkAdmin();
+  if(isAdmin){
+    const adminBtn=document.getElementById('admin-nav-btn');
+    if(adminBtn)adminBtn.style.display='inline-flex';
+  }
   await loadDay(curDate);
   checkAndCarryOver();
   recurringCache=null;
@@ -2573,6 +2664,326 @@ async function downloadWeeklyReport(){
   toast('📥 Excel 파일이 다운로드됐어요');
 }
 
+
+/* ═══════════════════════════════════════
+   관리자 기능
+═══════════════════════════════════════ */
+let isAdmin=false;
+let adminPeriod='week';
+let adminDateFrom=null;
+let adminDateTo=null;
+let adminAllData=[]; // {email, user_id, days:[{date,data}]}
+
+/* ── 관리자 여부 확인 ── */
+async function checkAdmin(){
+  if(!currentSession?.user?.email)return false;
+  try{
+    const res=await fetch(
+      `${SB_URL}/rest/v1/admins?email=eq.${encodeURIComponent(currentSession.user.email)}&select=email`,
+      {headers:getSBHeaders()}
+    );
+    const rows=await res.json();
+    return rows&&rows.length>0;
+  }catch(e){return false;}
+}
+
+/* ── 기간 설정 ── */
+function setAdminPeriod(p,btn){
+  adminPeriod=p;
+  btn.closest('.period-tabs').querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const customEl=document.getElementById('admin-custom-range');
+  if(p==='custom'){customEl.style.display='flex';return;}
+  customEl.style.display='none';
+  loadAdminData();
+}
+
+function getAdminDateRange(){
+  const today=new Date();
+  const dow=today.getDay();
+  if(adminPeriod==='week'){
+    // 이번 주 목요일~수요일
+    const diffToThur=dow>=4?dow-4:dow+3;
+    const thu=new Date(today);thu.setDate(today.getDate()-diffToThur);
+    const wed=new Date(thu);wed.setDate(thu.getDate()+6);
+    return{
+      from:`${thu.getFullYear()}-${pad(thu.getMonth()+1)}-${pad(thu.getDate())}`,
+      to:`${wed.getFullYear()}-${pad(wed.getMonth()+1)}-${pad(wed.getDate())}`
+    };
+  }
+  if(adminPeriod==='last'){
+    const diffToThur=dow>=4?dow-4:dow+3;
+    const thisThu=new Date(today);thisThu.setDate(today.getDate()-diffToThur);
+    const lastThu=new Date(thisThu);lastThu.setDate(thisThu.getDate()-7);
+    const lastWed=new Date(lastThu);lastWed.setDate(lastThu.getDate()+6);
+    return{
+      from:`${lastThu.getFullYear()}-${pad(lastThu.getMonth()+1)}-${pad(lastThu.getDate())}`,
+      to:`${lastWed.getFullYear()}-${pad(lastWed.getMonth()+1)}-${pad(lastWed.getDate())}`
+    };
+  }
+  if(adminPeriod==='custom'){
+    const f=document.getElementById('admin-date-from').value;
+    const t=document.getElementById('admin-date-to').value;
+    if(f&&t)return{from:f,to:t};
+  }
+  return{from:todayStr(),to:todayStr()};
+}
+
+/* ── 전체 데이터 로드 ── */
+async function loadAdminData(){
+  if(!isAdmin){toast('관리자 권한이 없어요');return;}
+  showLoading('전체 데이터 불러오는 중...');
+
+  const {from,to}=getAdminDateRange();
+
+  // service_role 없이 anon으로 모든 사용자 데이터 가져오기
+  // admin_user_summary 뷰 + daily_tasks 조회
+  try{
+    // 1) 전체 사용자 목록 (admin_user_summary 뷰)
+    const userRes=await fetch(
+      `${SB_URL}/rest/v1/admin_user_summary?select=user_id,email,joined_at,last_sign_in_at,total_days,last_active&order=email.asc`,
+      {headers:getSBHeaders()}
+    );
+    const users=await userRes.json();
+
+    // 2) 기간 내 전체 daily_tasks (RLS 우회 위해 뷰 필요 - 일단 본인 것만)
+    // 관리자는 모든 사용자 데이터를 볼 수 있도록 별도 RLS 정책 필요
+    const taskRes=await fetch(
+      `${SB_URL}/rest/v1/daily_tasks?date=gte.${from}&date=lte.${to}&select=user_id,date,data&order=date.asc`,
+      {headers:getSBHeaders()}
+    );
+    const allTasks=await taskRes.json();
+
+    hideLoading();
+
+    // 사용자별로 그룹핑
+    const tasksByUser={};
+    (allTasks||[]).forEach(row=>{
+      if(!tasksByUser[row.user_id])tasksByUser[row.user_id]=[];
+      tasksByUser[row.user_id].push({date:row.date,data:row.data});
+    });
+
+    adminAllData=(users||[]).map(u=>({
+      email:u.email,
+      user_id:u.user_id,
+      joined_at:u.joined_at,
+      last_sign_in_at:u.last_sign_in_at,
+      total_days:u.total_days||0,
+      last_active:u.last_active||'없음',
+      days:tasksByUser[u.user_id]||[]
+    }));
+
+    renderAdminDashboard(from,to);
+  }catch(e){
+    hideLoading();
+    console.error('admin load error:',e);
+    toast('데이터 로드 실패: '+e.message);
+  }
+}
+
+/* ── 대시보드 렌더 ── */
+function renderAdminDashboard(from,to){
+  const totalUsers=adminAllData.length;
+  const activeUsers=adminAllData.filter(u=>u.days.length>0).length;
+  let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
+  adminAllData.forEach(u=>u.days.forEach(d=>{
+    const tasks=d.data?.tasks||[];
+    totalTasks+=tasks.length;
+    totalDone+=tasks.filter(t=>t.done).length;
+    totalUndone+=tasks.filter(t=>!t.done).length;
+    totalCarry+=tasks.filter(t=>t.carriedFrom).length;
+  }));
+  const avgRate=totalTasks?Math.round(totalDone/totalTasks*100):0;
+
+  // 요약 카드
+  document.getElementById('admin-summary-cards').innerHTML=`
+    <div class="sum-card"><div class="sum-lbl">전체 사용자</div><div class="sum-val">${totalUsers}명</div><div class="sum-sub">활성 ${activeUsers}명</div></div>
+    <div class="sum-card"><div class="sum-lbl">팀 평균 달성률</div><div class="sum-val">${avgRate}%</div><div class="sum-sub">${from} ~ ${to}</div></div>
+    <div class="sum-card"><div class="sum-lbl">미완료 업무</div><div class="sum-val" style="color:var(--red);">${totalUndone}</div><div class="sum-sub">전체 ${totalTasks}개 중</div></div>
+    <div class="sum-card"><div class="sum-lbl">이월 횟수</div><div class="sum-val" style="color:var(--blue);">${totalCarry}</div><div class="sum-sub">기간 내 합계</div></div>
+  `;
+
+  // 사용자별 달성률
+  const rateEl=document.getElementById('admin-user-rates');
+  if(!adminAllData.length){rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';return;}
+  rateEl.innerHTML=adminAllData.map(u=>{
+    const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+    const total=tasks.length,done=tasks.filter(t=>t.done).length;
+    const rate=total?Math.round(done/total*100):0;
+    const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
+    return`<div class="admin-user-row">
+      <div class="admin-user-email">${esc(u.email)}</div>
+      <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
+      <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
+      <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
+    </div>`;
+  }).join('');
+
+  // 미완료/이월 현황
+  const undoneEl=document.getElementById('admin-undone-list');
+  const undoneItems=[];
+  adminAllData.forEach(u=>u.days.forEach(d=>{
+    (d.data?.tasks||[]).filter(t=>!t.done).forEach(t=>{
+      undoneItems.push({email:u.email,date:d.date,name:t.name,carry:t.carriedFrom||''});
+    });
+  }));
+  if(!undoneItems.length){
+    undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 미완료 업무가 없어요!</div>';
+  } else {
+    undoneEl.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">총 ${undoneItems.length}개</div>`+
+    undoneItems.slice(0,20).map(item=>`
+      <div class="admin-undone-item">
+        <div class="admin-undone-name">${item.carry?`🔄 `:''  }${esc(item.name)}</div>
+        <div class="admin-undone-user">${esc(item.email.split('@')[0])} · ${item.date}</div>
+      </div>`).join('')+
+    (undoneItems.length>20?`<div style="font-size:12px;color:var(--text3);margin-top:6px;">외 ${undoneItems.length-20}개 더...</div>`:'');
+  }
+
+  // 사용자 선택 드롭다운
+  const sel=document.getElementById('admin-user-select');
+  sel.innerHTML='<option value="">사용자 선택</option>'+
+    adminAllData.map(u=>`<option value="${esc(u.user_id)}">${esc(u.email)}</option>`).join('');
+
+  // 사용자 목록
+  const userListEl=document.getElementById('admin-user-list');
+  userListEl.innerHTML=adminAllData.map(u=>`
+    <div class="admin-user-chip">
+      <div>
+        <div style="font-size:13px;font-weight:500;">${esc(u.email)}</div>
+        <div style="font-size:11px;color:var(--text3);">가입: ${u.joined_at?u.joined_at.slice(0,10):'—'} · 마지막 접속: ${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'} · 기록 ${u.total_days}일</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);">최근 활동: ${u.last_active||'없음'}</div>
+    </div>`).join('');
+
+  // 관리자 목록 로드
+  loadAdminList();
+}
+
+/* ── 사용자별 업무 목록 ── */
+function renderAdminUserTasks(){
+  const uid=document.getElementById('admin-user-select').value;
+  const el=document.getElementById('admin-user-tasks');
+  if(!uid){el.innerHTML='';return;}
+  const user=adminAllData.find(u=>u.user_id===uid);
+  if(!user||!user.days.length){el.innerHTML='<div style="padding:14px 18px;font-size:13px;color:var(--text3);">이 기간에 기록이 없어요</div>';return;}
+
+  let html='';
+  user.days.forEach(d=>{
+    const [y,m,dd]=d.date.split('-').map(Number);
+    const dow=new Date(y,m-1,dd).getDay();
+    const tasks=d.data?.tasks||[];
+    html+=`<div style="border-bottom:1px solid var(--border);padding:10px 18px;">
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일) · ${d.data?.agenda||''}</div>
+      ${tasks.length?tasks.map(t=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
+          <span style="color:${t.done?'var(--green)':'var(--red)'};">${t.done?'✓':'○'}</span>
+          <span style="flex:1;color:var(--text);">${t.carriedFrom?'🔄 ':''}${esc(t.category?`[${t.category}] `:'')}${esc(t.name)}</span>
+          <span style="color:var(--text3);">${['','🟢','🟡','🟠','🔴'][t.priority]||''}</span>
+        </div>`).join('')
+      :'<div style="font-size:12px;color:var(--text3);">업무 없음</div>'}
+      ${d.data?.memo?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:4px;">💬 ${esc(d.data.memo)}</div>`:''}
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+/* ── 전체 Excel 일괄 다운로드 ── */
+async function adminDownloadAll(){
+  if(!adminAllData.length){toast('먼저 데이터를 불러와 주세요');return;}
+  const {from,to}=getAdminDateRange();
+  showLoading('Excel 생성 중...');
+  const wb=XLSX.utils.book_new();
+
+  // 시트1: 전체 요약
+  const summaryRows=[['주간업무보고 - 전체 요약'],['기간',`${from} ~ ${to}`],[''],
+    ['이메일','총 업무','완료','미완료','달성률','마지막 활동']];
+  adminAllData.forEach(u=>{
+    const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+    const total=tasks.length,done=tasks.filter(t=>t.done).length;
+    summaryRows.push([u.email,total,done,total-done,total?Math.round(done/total*100)+'%':'—',u.last_active||'없음']);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(summaryRows);
+  ws1['!cols']=[{wch:30},{wch:8},{wch:8},{wch:8},{wch:8},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws1,'전체 요약');
+
+  // 사용자별 시트
+  adminAllData.forEach(u=>{
+    if(!u.days.length)return;
+    const rows=[['날짜','요일','업무','구분','완료','우선순위','비고','이월','특이사항']];
+    u.days.forEach(d=>{
+      const [y,m,dd]=d.date.split('-').map(Number);
+      const dow=new Date(y,m-1,dd).getDay();
+      const tasks=d.data?.tasks||[];
+      if(!tasks.length){rows.push([d.date,DAYS[dow]+'요일','(업무없음)','','','','',d.data?.memo||'']);return;}
+      tasks.forEach((t,i)=>{
+        rows.push([
+          i===0?d.date:'',
+          i===0?DAYS[dow]+'요일':'',
+          t.name||'',t.category||'',
+          t.done?'완료':'미완료',
+          ['','낮음','보통','높음','최우선'][t.priority]||'',
+          t.note||'',
+          t.carriedFrom?`🔄 ${t.carriedFrom}`:'',
+          i===0?(d.data?.memo||''):''
+        ]);
+      });
+      rows.push([]);
+    });
+    const sheetName=u.email.split('@')[0].slice(0,28);
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:7},{wch:30},{wch:10},{wch:8},{wch:8},{wch:20},{wch:10},{wch:30}];
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+
+  const fileName=`주간업무보고_전체_${from}_${to}.xlsx`;
+  XLSX.writeFile(wb,fileName);
+  hideLoading();
+  toast('📥 전체 Excel이 다운로드됐어요');
+}
+
+/* ── 관리자 목록 관리 ── */
+async function loadAdminList(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/admins?select=id,email,created_at&order=created_at.asc`,{headers:getSBHeaders()});
+    const admins=await res.json();
+    const el=document.getElementById('admin-list');
+    if(!admins||!admins.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);">등록된 관리자가 없어요</div>';return;}
+    el.innerHTML=admins.map(a=>`
+      <div class="admin-user-chip" style="margin-bottom:6px;">
+        <div style="font-size:13px;">${esc(a.email)}${a.email===currentSession?.user?.email?' <span style="font-size:10px;color:var(--accent);">(나)</span>':''}</div>
+        ${a.email!==currentSession?.user?.email?`<button onclick="removeAdmin('${a.id}','${esc(a.email)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:6px;cursor:pointer;">삭제</button>`:''}
+      </div>`).join('');
+  }catch(e){console.error('loadAdminList:',e);}
+}
+
+async function addAdmin(){
+  const email=document.getElementById('admin-add-email').value.trim();
+  if(!email||!email.includes('@')){toast('올바른 이메일을 입력해 주세요');return;}
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/admins`,{
+      method:'POST',
+      headers:{...getSBHeaders(),'Prefer':'return=minimal'},
+      body:JSON.stringify({email})
+    });
+    if(res.status===200||res.status===201||res.status===204){
+      document.getElementById('admin-add-email').value='';
+      loadAdminList();
+      toast(`✅ ${email} 관리자로 추가됐어요`);
+    } else {
+      toast('추가 실패. 이미 등록된 이메일일 수 있어요');
+    }
+  }catch(e){toast('오류: '+e.message);}
+}
+
+async function removeAdmin(id,email){
+  if(!confirm(`${email} 을 관리자에서 제거할까요?`))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/admins?id=eq.${id}`,{method:'DELETE',headers:getSBHeaders()});
+    loadAdminList();
+    toast('삭제됐어요');
+  }catch(e){toast('오류: '+e.message);}
+}
+
 /* ═══════════════════════════════════════
    VIEW SWITCHING
 ═══════════════════════════════════════ */
@@ -2581,11 +2992,12 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  const idx={today:0,calendar:1,history:2,stats:3,recurring:4}[v];
+  const idx={today:0,calendar:1,history:2,stats:3,recurring:4,admin:5}[v];
   document.querySelectorAll('.nav-btn')[idx].classList.add('active');
   if(v==='calendar')renderCalendar();
   if(v==='history'){histFullData=[];renderHistory();}
   if(v==='recurring')renderRecurring();
+  if(v==='admin')loadAdminData();
   if(v==='stats'){
     // 모든 서브탭 중 overview만 표시
     ['overview','priority','category','carry','weekday','minutes'].forEach(t=>{

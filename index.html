@@ -683,8 +683,11 @@
 
       <!-- 사용자별 달성률 -->
       <div class="section-card" style="margin-bottom:16px;">
-        <div class="section-head"><h3>👥 사용자별 달성률</h3></div>
-        <div id="admin-user-rates" style="padding:14px 18px;"></div>
+        <div class="section-head" onclick="toggleAdminRates()" style="cursor:pointer;user-select:none;">
+          <h3>👥 사용자별 달성률</h3>
+          <span id="admin-rates-toggle" style="font-size:13px;color:var(--text3);">▶ 펼치기</span>
+        </div>
+        <div id="admin-user-rates" style="padding:14px 18px;display:none;"></div>
       </div>
 
       <!-- 미완료/이월 현황 -->
@@ -3137,6 +3140,15 @@ function getFilteredUsers(){
   return adminAllData.filter(u=>u.team===adminTeamFilter);
 }
 
+function toggleAdminRates(){
+  const el=document.getElementById('admin-user-rates');
+  const btn=document.getElementById('admin-rates-toggle');
+  if(!el||!btn)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  btn.textContent=isOpen?'▶ 펼치기':'▼ 접기';
+}
+
 /* ── 대시보드 렌더 ── */
 function renderAdminDashboard(from,to){
   // 역할 배지 표시
@@ -3153,9 +3165,8 @@ function renderAdminDashboard(from,to){
       if(desc)desc.textContent=adminAssignedTeam?`${adminAssignedTeam} 팀 현황을 확인해요`:'담당 팀 현황을 확인해요';
     }
   }
-  // 팀 필터는 슈퍼 관리자만 표시
-  const filterWrap=document.getElementById('admin-team-filter-wrap');
-  if(filterWrap)filterWrap.parentElement.style.display=isSuperAdmin()?'flex':'none';
+  // 팀/파트 필터 렌더 (슈퍼=팀필터, 팀관리자=파트필터)
+  renderAdminTeamFilter();
 
   const filtered=getFilteredUsers();
   const totalUsers=filtered.length;
@@ -3180,6 +3191,7 @@ function renderAdminDashboard(from,to){
 
   // 팀별 그룹핑해서 달성률 표시
   const rateEl=document.getElementById('admin-user-rates');
+  // 접힘 상태 유지 (재렌더 시 강제로 펼치지 않음)
   if(!filtered.length){rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';return;}
 
   // 팀별로 묶기
@@ -3258,19 +3270,32 @@ function renderAdminDashboard(from,to){
   const undoneItems=[];
   filtered.forEach(u=>u.days.forEach(d=>{
     (d.data?.tasks||[]).filter(t=>!t.done).forEach(t=>{
-      undoneItems.push({name:u.name,email:u.email,team:u.team,date:d.date,task:t.name,carry:t.carriedFrom||''});
+      undoneItems.push({name:u.name,email:u.email,team:u.team,part:u.part,date:d.date,task:t.name,carry:t.carriedFrom||''});
     });
   }));
   if(!undoneItems.length){
     undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 미완료 업무가 없어요!</div>';
   } else {
-    undoneEl.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">총 ${undoneItems.length}개</div>`+
-    undoneItems.slice(0,30).map(item=>`
-      <div class="admin-undone-item">
-        <div class="admin-undone-name">${item.carry?'🔄 ':''}${esc(item.task)}</div>
-        <div class="admin-undone-user">${item.team?esc(item.team)+' · ':''}${esc(item.name)} · ${item.date}</div>
-      </div>`).join('')+
-    (undoneItems.length>30?`<div style="font-size:12px;color:var(--text3);margin-top:6px;">외 ${undoneItems.length-30}개 더...</div>`:'');
+    // 파트별 그룹핑
+    const undoneByPart={};
+    undoneItems.forEach(item=>{
+      const p=item.part||'(파트 미지정)';
+      if(!undoneByPart[p])undoneByPart[p]=[];
+      undoneByPart[p].push(item);
+    });
+    const partOrder=[...PARTS,'(파트 미지정)'];
+    let undoneHtml=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">총 ${undoneItems.length}개</div>`;
+    partOrder.forEach(part=>{
+      const items=undoneByPart[part];
+      if(!items||!items.length)return;
+      undoneHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:8px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
+      undoneHtml+=items.map(item=>`
+        <div class="admin-undone-item">
+          <div class="admin-undone-name">${item.carry?'🔄 ':''}${esc(item.task)}</div>
+          <div class="admin-undone-user">${esc(item.name)} · ${item.date}</div>
+        </div>`).join('');
+    });
+    undoneEl.innerHTML=undoneHtml;
   }
 
   // 사용자 선택 드롭다운 (팀별 그룹핑)

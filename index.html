@@ -711,7 +711,7 @@
       </div>
 
       <!-- 관리자 설정 (슈퍼 관리자만) -->
-      <div class="section-card" id="admin-settings-section">
+      <div class="section-card" id="admin-settings-section" style="display:none;">
         <div class="section-head"><h3>⚙️ 관리자 설정</h3></div>
         <div style="padding:14px 18px;">
           <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">관리자 이메일 추가/삭제</div>
@@ -761,7 +761,7 @@
     <div class="modal-hd"><h3 id="recurring-modal-title">반복업무 추가</h3><button class="modal-x" onclick="closeRecurringModal()">✕</button></div>
     <div class="modal-body">
       <div class="m-lbl">구분</div>
-      <input class="m-input" id="r-category" placeholder="예: 홀카페 (선택)">
+      <input class="m-input" id="r-category" placeholder="예: 홍카페 (선택)">
       <div class="m-lbl">업무 내용</div>
       <input class="m-input" id="r-name" placeholder="반복 업무 내용을 입력하세요">
       <div class="m-lbl">우선순위</div>
@@ -2946,12 +2946,12 @@ async function loadAdminData(){
 
     // 2) 프로필(이름/팀) 로드
     const profRes=await fetch(
-      `${SB_URL}/rest/v1/user_profiles?select=user_id,name,team`,
+      `${SB_URL}/rest/v1/user_profiles?select=user_id,name,team,part`,
       {headers:getSBHeaders()}
     );
     const profiles=await profRes.json();
     userProfiles={};
-    (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||''};});
+    (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||'',part:p.part||''};});
 
     // 3) 기간 내 daily_tasks
     // 팀 관리자: 담당 팀 user_id만 필터해서 가져옴
@@ -2988,6 +2988,7 @@ async function loadAdminData(){
       user_id:u.user_id,
       name:userProfiles[u.user_id]?.name||u.email.split('@')[0],
       team:userProfiles[u.user_id]?.team||'',
+      part:userProfiles[u.user_id]?.part||'',
       joined_at:u.joined_at,
       last_sign_in_at:u.last_sign_in_at,
       total_days:u.total_days||0,
@@ -3022,15 +3023,22 @@ async function loadAdminData(){
   }
 }
 
-/* ── 팀 필터 버튼 렌더 ── */
+/* ── 팀/파트 필터 ── */
+let adminPartFilter=''; // 팀 관리자용 파트 필터
+const PARTS=['글로벌','일본','신사업']; // 고정 파트 목록
+
 function renderAdminTeamFilter(){
   const wrap=document.getElementById('admin-team-filter-wrap');
   if(!wrap)return;
-  // 팀 관리자는 팀 필터 불필요 (이미 담당 팀만 로드됨)
   if(!isSuperAdmin()){
-    wrap.parentElement.style.display='none';
+    // 팀 관리자: 파트 필터 버튼 표시
+    wrap.parentElement.style.display='flex';
+    wrap.innerHTML=
+      `<button class="ptab ${adminPartFilter===''?'active':''}" onclick="setAdminPartFilter('',this)">전체</button>`+
+      PARTS.map(p=>`<button class="ptab ${adminPartFilter===p?'active':''}" onclick="setAdminPartFilter('${esc(p)}',this)">${esc(p)}</button>`).join('');
     return;
   }
+  // 슈퍼 관리자: 팀 필터 버튼 표시
   wrap.parentElement.style.display='flex';
   const teams=[...new Set(adminAllData.map(u=>u.team).filter(Boolean))].sort();
   wrap.innerHTML=`<button class="ptab ${adminTeamFilter===''?'active':''}" onclick="setAdminTeamFilter('',this)">전체</button>`+
@@ -3038,7 +3046,7 @@ function renderAdminTeamFilter(){
 }
 
 function setAdminTeamFilter(team,btn){
-  if(!isSuperAdmin())return; // 팀 관리자는 필터 변경 불가
+  if(!isSuperAdmin())return;
   adminTeamFilter=team;
   document.querySelectorAll('#admin-team-filter-wrap .ptab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -3046,10 +3054,21 @@ function setAdminTeamFilter(team,btn){
   renderAdminDashboard(from,to);
 }
 
+function setAdminPartFilter(part,btn){
+  adminPartFilter=part;
+  document.querySelectorAll('#admin-team-filter-wrap .ptab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const {from,to}=getAdminDateRange();
+  renderAdminDashboard(from,to);
+}
+
 function getFilteredUsers(){
-  // 팀 관리자는 adminAllData 자체가 이미 필터됨
-  if(!isSuperAdmin())return adminAllData;
-  // 슈퍼 관리자만 팀 필터 적용
+  if(!isSuperAdmin()){
+    // 팀 관리자: 파트 필터 적용
+    if(!adminPartFilter)return adminAllData;
+    return adminAllData.filter(u=>u.part===adminPartFilter);
+  }
+  // 슈퍼 관리자: 팀 필터 적용
   if(!adminTeamFilter)return adminAllData;
   return adminAllData.filter(u=>u.team===adminTeamFilter);
 }
@@ -3108,24 +3127,57 @@ function renderAdminDashboard(from,to){
   });
 
   let rateHtml='';
-  Object.entries(teamGroups).sort().forEach(([team,users])=>{
-    rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(team)}</div>`;
-    users.forEach(u=>{
-      const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
-      const total=tasks.length,done=tasks.filter(t=>t.done).length;
-      const rate=total?Math.round(done/total*100):0;
-      const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
-      rateHtml+=`<div class="admin-user-row">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
-          <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
-        </div>
-        <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
-        <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
-        <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
-      </div>`;
+  if(!isSuperAdmin()){
+    // 팀 관리자: 파트별로 그룹핑
+    const partGroups={};
+    filtered.forEach(u=>{
+      const p=u.part||'(파트 미지정)';
+      if(!partGroups[p])partGroups[p]=[];
+      partGroups[p].push(u);
     });
-  });
+    // 파트 순서: 글로벌, 일본, 신사업, 미지정
+    const partOrder=[...PARTS,'(파트 미지정)'];
+    partOrder.forEach(part=>{
+      const users=partGroups[part];
+      if(!users||!users.length)return;
+      rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
+      users.forEach(u=>{
+        const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+        const total=tasks.length,done=tasks.filter(t=>t.done).length;
+        const rate=total?Math.round(done/total*100):0;
+        const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
+        rateHtml+=`<div class="admin-user-row">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
+            <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
+          </div>
+          <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
+          <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
+          <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
+        </div>`;
+      });
+    });
+  } else {
+    // 슈퍼 관리자: 팀별 그룹핑
+    Object.entries(teamGroups).sort().forEach(([team,users])=>{
+      rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(team)}</div>`;
+      users.forEach(u=>{
+        const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+        const total=tasks.length,done=tasks.filter(t=>t.done).length;
+        const rate=total?Math.round(done/total*100):0;
+        const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
+        rateHtml+=`<div class="admin-user-row">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
+            <div style="font-size:11px;color:var(--text3);">${u.part?esc(u.part)+' · ':''}${esc(u.email)}</div>
+          </div>
+          <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
+          <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
+          <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
+        </div>`;
+      });
+    });
+  }
   rateEl.innerHTML=rateHtml;
 
   // 미완료/이월 현황
@@ -3162,26 +3214,37 @@ function renderAdminDashboard(from,to){
   const userListEl=document.getElementById('admin-user-list');
   // 팀 관리자는 팀원 목록만 보여줌 (이름/팀 수정 불가)
   if(!isSuperAdmin()){
+    const partOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
     userListEl.innerHTML=`
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원 목록이에요.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원의 파트를 설정할 수 있어요.</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:var(--surface2);">
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
+          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">파트</th>
           <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">기록 일수</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">마지막 접속</th>
+          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">저장</th>
         </tr></thead>
         <tbody>
-          ${filtered.map(u=>`
+          ${adminAllData.map(u=>`
             <tr style="border-bottom:1px solid var(--border);">
               <td style="padding:8px 10px;font-weight:500;">${esc(u.name)}</td>
               <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
+              <td style="padding:6px 10px;text-align:center;">
+                <select id="ppart_${u.user_id}" style="border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+                  ${partOpts}
+                </select>
+              </td>
               <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.total_days}일</td>
-              <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'}</td>
+              <td style="padding:6px 10px;text-align:center;"><button onclick="saveUserProfile('${u.user_id}','${esc(u.email)}')" style="padding:4px 10px;background:var(--accent);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">저장</button></td>
             </tr>`).join('')}
         </tbody>
       </table>`;
-    loadAdminList();
+    // 파트 드롭다운 현재값 반영
+    adminAllData.forEach(u=>{
+      const sel=document.getElementById('ppart_'+u.user_id);
+      if(sel)sel.value=u.part||'';
+    });
     return;
   }
 
@@ -3200,7 +3263,7 @@ function renderAdminDashboard(from,to){
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
             <td style="padding:6px 10px;"><input id="pname_${u.user_id}" value="${esc(u.name)}" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;"></td>
-            <td style="padding:6px 10px;"><input id="pteam_${u.user_id}" value="${esc(u.team)}" placeholder="예: 홀카페팀" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;"></td>
+            <td style="padding:6px 10px;"><input id="pteam_${u.user_id}" value="${esc(u.team)}" placeholder="예: 홍카페팀" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;"></td>
             <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'}</td>
             <td style="padding:6px 10px;text-align:center;"><button onclick="saveUserProfile('${u.user_id}','${esc(u.email)}')" style="padding:4px 10px;background:var(--accent);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">저장</button></td>
           </tr>`).join('')}
@@ -3218,27 +3281,26 @@ function renderAdminDashboard(from,to){
 async function saveUserProfile(userId,email){
   const name=document.getElementById('pname_'+userId)?.value||'';
   const team=document.getElementById('pteam_'+userId)?.value||'';
+  const part=document.getElementById('ppart_'+userId)?.value||'';
   try{
-    // upsert
     const chk=await fetch(`${SB_URL}/rest/v1/user_profiles?user_id=eq.${userId}&select=user_id`,{headers:getSBHeaders()});
     const ex=await chk.json();
     let res;
     if(ex&&ex.length>0){
       res=await fetch(`${SB_URL}/rest/v1/user_profiles?user_id=eq.${userId}`,{
         method:'PATCH',headers:{...getSBHeaders(),'Prefer':'return=minimal'},
-        body:JSON.stringify({name,team,updated_at:new Date().toISOString()})
+        body:JSON.stringify({name,team,part,updated_at:new Date().toISOString()})
       });
     } else {
       res=await fetch(`${SB_URL}/rest/v1/user_profiles`,{
         method:'POST',headers:{...getSBHeaders(),'Prefer':'return=minimal'},
-        body:JSON.stringify({user_id:userId,email,name,team})
+        body:JSON.stringify({user_id:userId,email,name,team,part})
       });
     }
     if(res.status===200||res.status===201||res.status===204){
-      // 로컬 반영
       const u=adminAllData.find(u=>u.user_id===userId);
-      if(u){u.name=name;u.team=team;}
-      userProfiles[userId]={name,team};
+      if(u){u.name=name;u.team=team;u.part=part;}
+      userProfiles[userId]={name,team,part};
       renderAdminTeamFilter();
       toast(`✅ ${name||email} 저장됐어요`);
     } else {

@@ -3114,9 +3114,14 @@ function renderAdminTeamFilter(){
 
 function setAdminTeamFilter(part,btn){
   if(!isSuperAdmin())return;
-  adminTeamFilter=part; // 슈퍼관리자도 파트 기준으로 필터
+  adminTeamFilter=part;
   document.querySelectorAll('#admin-team-filter-wrap .ptab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  // 팀 변경 시 업무 목록 초기화
+  const sel=document.getElementById('admin-user-select');
+  if(sel)sel.value='';
+  const taskEl=document.getElementById('admin-user-tasks');
+  if(taskEl)taskEl.innerHTML='';
   const {from,to}=getAdminDateRange();
   renderAdminDashboard(from,to);
 }
@@ -3125,6 +3130,11 @@ function setAdminPartFilter(part,btn){
   adminPartFilter=part;
   document.querySelectorAll('#admin-team-filter-wrap .ptab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  // 파트 변경 시 업무 목록 초기화
+  const sel=document.getElementById('admin-user-select');
+  if(sel)sel.value='';
+  const taskEl=document.getElementById('admin-user-tasks');
+  if(taskEl)taskEl.innerHTML='';
   const {from,to}=getAdminDateRange();
   renderAdminDashboard(from,to);
 }

@@ -733,10 +733,10 @@
     <div class="modal-hd"><h3>📥 주간보고 다운로드</h3><button class="modal-x" onclick="closeDownloadModal()">✕</button></div>
     <div class="modal-body">
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7;">
-        목요일 기준 1주일 업무내용을 Excel로 다운로드해요.<br>
-        기준 목요일을 선택하면 해당 주 목요일~다음 주 수요일까지의 데이터가 포함돼요.
+        금요일 기준 1주일 업무내용을 Excel로 다운로드해요.<br>
+        기준 금요일을 선택하면 해당 주 금요일~다음 주 목요일까지의 데이터가 포함돼요.
       </div>
-      <div class="m-lbl">기준 목요일 선택</div>
+      <div class="m-lbl">기준 금요일 선택</div>
       <input type="date" id="dl-date" class="m-input" style="cursor:pointer;">
       <div id="dl-range-preview" style="font-size:12px;color:var(--accent);margin-top:6px;font-weight:500;"></div>
       <div class="m-lbl" style="margin-top:14px;">포함 내용</div>
@@ -2518,14 +2518,14 @@ function getLastWorkday(y,m){
    주간보고 다운로드
 ═══════════════════════════════════════ */
 function openDownloadModal(){
-  // 이번 주 목요일 기본값으로 설정
+  // 이번 주 금요일 기본값으로 설정
   const today=new Date();
   const dow=today.getDay(); // 0=일 ~ 6=토
-  const diffToThursday=dow>=4?dow-4:dow+3; // 가장 최근 목요일
-  const thisThursday=new Date(today);
-  thisThursday.setDate(today.getDate()-diffToThursday);
-  const thStr=`${thisThursday.getFullYear()}-${pad(thisThursday.getMonth()+1)}-${pad(thisThursday.getDate())}`;
-  document.getElementById('dl-date').value=thStr;
+  const diffToFriday=dow>=5?dow-5:dow+2; // 가장 최근 금요일
+  const thisFriday=new Date(today);
+  thisFriday.setDate(today.getDate()-diffToFriday);
+  const frStr=`${thisFriday.getFullYear()}-${pad(thisFriday.getMonth()+1)}-${pad(thisFriday.getDate())}`;
+  document.getElementById('dl-date').value=frStr;
   updateDlPreview();
   document.getElementById('download-modal').classList.add('open');
 }
@@ -2537,15 +2537,15 @@ function updateDlPreview(){
   if(!val)return;
   const [y,m,d]=val.split('-').map(Number);
   const dt=new Date(y,m-1,d);
-  if(dt.getDay()!==4){
-    document.getElementById('dl-range-preview').textContent='⚠️ 목요일을 선택해 주세요';
+  if(dt.getDay()!==5){
+    document.getElementById('dl-range-preview').textContent='⚠️ 금요일을 선택해 주세요';
     document.getElementById('dl-range-preview').style.color='var(--red)';
     return;
   }
-  // 목요일~다음주 수요일 (7일)
+  // 금요일~다음주 목요일 (7일)
   const endDt=new Date(y,m-1,d+6);
   const endStr=`${endDt.getFullYear()}-${pad(endDt.getMonth()+1)}-${pad(endDt.getDate())}`;
-  document.getElementById('dl-range-preview').textContent=`📅 ${val} (목) ~ ${endStr} (수) · 7일`;
+  document.getElementById('dl-range-preview').textContent=`📅 ${val} (금) ~ ${endStr} (목) · 7일`;
   document.getElementById('dl-range-preview').style.color='var(--accent)';
 }
 document.getElementById('dl-date').addEventListener('change',updateDlPreview);
@@ -2593,6 +2593,15 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   wb.created=new Date();
   const {C,hdr,data}=xlsStyle();
 
+  // 날짜를 금~목 순서로 재정렬 (금 토 일 월 화 수 목)
+  const DOW_ORDER=[5,6,0,1,2,3,4]; // 금,토,일,월,화,수,목
+  const sortedDayDatas=[...dayDatas].sort((a,b)=>{
+    const [ay,am,ad]=a.date.split('-').map(Number);
+    const [by,bm,bd]=b.date.split('-').map(Number);
+    const da=new Date(ay,am-1,ad), db=new Date(by,bm-1,bd);
+    return da-db; // 날짜 오름차순 유지 (이미 금~목 순으로 dates 생성)
+  });
+
   // ══════════════════════════════
   // 시트1: 주간 업무 일지 (메인)
   // ══════════════════════════════
@@ -2601,7 +2610,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   ws1.columns=[
     {key:'a',width:12},{key:'b',width:7},{key:'c',width:5},
     {key:'d',width:12},{key:'e',width:36},{key:'f',width:9},
-    {key:'g',width:9},{key:'h',width:22},{key:'i',width:11}
+    {key:'g',width:9},{key:'h',width:28},{key:'i',width:11}
   ];
 
   // 타이틀 행
@@ -2613,15 +2622,14 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   titleCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
   ws1.getRow(1).height=36;
 
-  // 정보 행
+  // 정보 행 (금~목 기간으로 표시)
+  const firstDate=sortedDayDatas[0]?.date||dates[0];
+  const lastDate=sortedDayDatas[sortedDayDatas.length-1]?.date||dates[6];
   ws1.mergeCells('A2:C2');ws1.mergeCells('D2:F2');ws1.mergeCells('G2:I2');
   data(ws1.getCell('A2'),`작성자: ${userName}`,{bold:true,bg:'F0EBE3',align:'center'});
-  data(ws1.getCell('D2'),`기간: ${dates[0]} (목) ~ ${dates[6]} (수)`,{bold:true,bg:'F0EBE3',align:'center'});
+  data(ws1.getCell('D2'),`기간: ${firstDate} ~ ${lastDate}`,{bold:true,bg:'F0EBE3',align:'center'});
   data(ws1.getCell('G2'),`작성일: ${todayStr()}`,{bold:true,bg:'F0EBE3',align:'center'});
   ws1.getRow(2).height=20;
-
-  // 빈 행
-  ws1.addRow([]);ws1.getRow(3).height=6;
 
   // 컬럼 헤더
   const hRow=ws1.addRow([]);
@@ -2632,10 +2640,9 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     hdr(cell,h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
   });
 
-  // 데이터 행
-  let rowNum=5;
+  // 데이터 행 — rowNum 없애고 ws1.rowCount 사용
   let totalAll=0,doneAll=0;
-  dayDatas.forEach(({date,data:d})=>{
+  sortedDayDatas.forEach(({date,data:d})=>{
     const tasks=d.tasks||[];
     const [yy,mm,dd2]=date.split('-').map(Number);
     const dow=new Date(yy,mm-1,dd2).getDay();
@@ -2650,11 +2657,12 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
       data(r.getCell(2),DAYS[dow]+'요일',{bg,align:'center'});
       for(let i=3;i<=8;i++)data(r.getCell(i),'',{bg});
       data(r.getCell(9),'(업무없음)',{bg,fg:'9E9890',align:'center'});
-      rowNum++;
     } else {
-      const startRow=rowNum;
+      const startRowIdx=ws1.rowCount+1;
       tasks.forEach((t,i)=>{
-        const r=ws1.addRow([]);r.height=20;
+        // 비고 줄수에 맞게 행 높이 자동
+        const noteLines=t.note?(t.note.length>40?Math.ceil(t.note.length/40)*15+10:20):20;
+        const r=ws1.addRow([]);r.height=Math.max(20,noteLines);
         const isAlt=i%2===1;
         const bg=isWeekend?'EDF2F7':isAlt?C.altRow:C.white;
         const doneBg=t.done?C.doneBg:(t.carriedFrom?C.carryBg:bg);
@@ -2673,43 +2681,49 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
         const priBg={1:C.white,2:'FFF9E6',3:'FFF0E6',4:C.undoneBg};
         data(r.getCell(6),priMap[t.priority]||'',{bg:priBg[t.priority]||bg,align:'center'});
         data(r.getCell(7),t.done?'● 완료':'○ 미완료',{bg:t.done?C.doneBg:C.undoneBg,fg:t.done?C.doneFg:C.undoneFg,align:'center',bold:true});
-        data(r.getCell(8),t.note||'',{bg,wrap:true});
+        data(r.getCell(8),t.note||'',{bg,wrap:true,sz:10});
         data(r.getCell(9),t.carriedFrom?`↩ ${t.carriedFrom}`:(t.isRecurring?'↻ 반복':''),{bg:t.carriedFrom?C.carryBg:bg,fg:t.carriedFrom?C.carryFg:'9E9890',align:'center'});
-        rowNum++;
       });
-      // 날짜 셀 병합
-      if(tasks.length>1)ws1.mergeCells(`A${startRow+4}:A${rowNum+3}`);
-      if(tasks.length>1)ws1.mergeCells(`B${startRow+4}:B${rowNum+3}`);
+      // 날짜/요일 셀 병합
+      const endRowIdx=ws1.rowCount;
+      if(tasks.length>1){
+        ws1.mergeCells(`A${startRowIdx}:A${endRowIdx}`);
+        ws1.mergeCells(`B${startRowIdx}:B${endRowIdx}`);
+        // 병합 후 정렬 재설정
+        ws1.getCell(`A${startRowIdx}`).alignment={horizontal:'center',vertical:'middle'};
+        ws1.getCell(`B${startRowIdx}`).alignment={horizontal:'center',vertical:'middle'};
+      }
+    }
+
+    // 특이사항 행
+    if(opts.incMemo&&d.memo&&d.memo.trim()){
+      const mr=ws1.addRow([]);
+      const memoLines=Math.ceil(d.memo.length/60)*15+10;
+      mr.height=Math.max(28,memoLines);
+      const memoRowIdx=ws1.rowCount;
+      ws1.mergeCells(`A${memoRowIdx}:B${memoRowIdx}`);
+      ws1.mergeCells(`C${memoRowIdx}:I${memoRowIdx}`);
+      data(mr.getCell(1),'특이사항',{bg:C.accentBg,bold:true,align:'center',fg:C.titleFg});
+      data(mr.getCell(3),d.memo,{bg:'FDFCFB',wrap:true,fg:'2C2825'});
     }
 
     // 날짜 구분선
-    if(opts.incMemo&&d.memo&&d.memo.trim()){
-      const mr=ws1.addRow([]);mr.height=28;
-      ws1.mergeCells(`A${rowNum+4}:B${rowNum+4}`);
-      ws1.mergeCells(`C${rowNum+4}:I${rowNum+4}`);
-      data(mr.getCell(1),'특이사항',{bg:C.accentBg,bold:true,align:'center',fg:C.titleFg});
-      data(mr.getCell(3),d.memo,{bg:'FDFCFB',wrap:true,fg:'2C2825'});
-      rowNum++;
-    }
-
-    // 구분 행
-    const sepRow=ws1.addRow([]);sepRow.height=4;
+    const sepRow=ws1.addRow([]);sepRow.height=5;
     for(let i=1;i<=9;i++){
-      const c=ws1.getCell(`${String.fromCharCode(64+i)}${rowNum+4}`);
-      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8E4DE'}};
+      sepRow.getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8E4DE'}};
     }
-    rowNum++;
   });
 
   // 합계 행
   const totalRow=ws1.addRow([]);totalRow.height=24;
   const totalRate=totalAll?Math.round(doneAll/totalAll*100):0;
-  ws1.mergeCells(`A${rowNum+4}:D${rowNum+4}`);
-  hdr(ws1.getCell(`A${rowNum+4}`),'합 계',C.headerBg,C.headerFg,11,true,'center');
-  hdr(ws1.getCell(`E${rowNum+4}`),`전체 ${totalAll}개 중 ${doneAll}개 완료`,C.headerBg,C.headerFg,10,false,'center');
-  ws1.mergeCells(`E${rowNum+4}:F${rowNum+4}`);
-  hdr(ws1.getCell(`G${rowNum+4}`),`달성률 ${totalRate}%`,totalRate>=80?C.doneFg:totalRate>=50?C.titleFg:C.undoneFg,C.headerFg,12,true,'center');
-  ws1.mergeCells(`G${rowNum+4}:I${rowNum+4}`);
+  const sumIdx=ws1.rowCount;
+  ws1.mergeCells(`A${sumIdx}:D${sumIdx}`);
+  hdr(ws1.getCell(`A${sumIdx}`),'합 계',C.headerBg,C.headerFg,11,true,'center');
+  ws1.mergeCells(`E${sumIdx}:F${sumIdx}`);
+  hdr(ws1.getCell(`E${sumIdx}`),`전체 ${totalAll}개 중 ${doneAll}개 완료`,C.headerBg,C.headerFg,10,false,'center');
+  ws1.mergeCells(`G${sumIdx}:I${sumIdx}`);
+  hdr(ws1.getCell(`G${sumIdx}`),`달성률 ${totalRate}%`,totalRate>=80?C.doneFg:totalRate>=50?C.titleFg:C.undoneFg,C.headerFg,12,true,'center');
 
   // ══════════════════════════════
   // 시트2: 회의록
@@ -2809,7 +2823,7 @@ async function downloadWeeklyReport(){
   if(!val){toast('날짜를 선택해 주세요');return;}
   const [y,m,d]=val.split('-').map(Number);
   const dt=new Date(y,m-1,d);
-  if(dt.getDay()!==4){toast('목요일을 선택해 주세요');return;}
+  if(dt.getDay()!==5){toast('금요일을 선택해 주세요');return;}
 
   const opts={
     incTasks:document.getElementById('dl-tasks').checked,
@@ -2819,6 +2833,7 @@ async function downloadWeeklyReport(){
     incMinutes:document.getElementById('dl-minutes').checked,
   };
 
+  // 금~목 7일 날짜 생성
   const dates=[];
   for(let i=0;i<7;i++){
     const dd=new Date(y,m-1,d+i);
@@ -2899,23 +2914,23 @@ function getAdminDateRange(){
   const today=new Date();
   const dow=today.getDay();
   if(adminPeriod==='week'){
-    // 이번 주 목요일~수요일
-    const diffToThur=dow>=4?dow-4:dow+3;
-    const thu=new Date(today);thu.setDate(today.getDate()-diffToThur);
-    const wed=new Date(thu);wed.setDate(thu.getDate()+6);
+    // 이번 주 금요일~목요일
+    const diffToFri=dow>=5?dow-5:dow+2;
+    const fri=new Date(today);fri.setDate(today.getDate()-diffToFri);
+    const thu=new Date(fri);thu.setDate(fri.getDate()+6);
     return{
-      from:`${thu.getFullYear()}-${pad(thu.getMonth()+1)}-${pad(thu.getDate())}`,
-      to:`${wed.getFullYear()}-${pad(wed.getMonth()+1)}-${pad(wed.getDate())}`
+      from:`${fri.getFullYear()}-${pad(fri.getMonth()+1)}-${pad(fri.getDate())}`,
+      to:`${thu.getFullYear()}-${pad(thu.getMonth()+1)}-${pad(thu.getDate())}`
     };
   }
   if(adminPeriod==='last'){
-    const diffToThur=dow>=4?dow-4:dow+3;
-    const thisThu=new Date(today);thisThu.setDate(today.getDate()-diffToThur);
-    const lastThu=new Date(thisThu);lastThu.setDate(thisThu.getDate()-7);
-    const lastWed=new Date(lastThu);lastWed.setDate(lastThu.getDate()+6);
+    const diffToFri=dow>=5?dow-5:dow+2;
+    const thisFri=new Date(today);thisFri.setDate(today.getDate()-diffToFri);
+    const lastFri=new Date(thisFri);lastFri.setDate(thisFri.getDate()-7);
+    const lastThu=new Date(lastFri);lastThu.setDate(lastFri.getDate()+6);
     return{
-      from:`${lastThu.getFullYear()}-${pad(lastThu.getMonth()+1)}-${pad(lastThu.getDate())}`,
-      to:`${lastWed.getFullYear()}-${pad(lastWed.getMonth()+1)}-${pad(lastWed.getDate())}`
+      from:`${lastFri.getFullYear()}-${pad(lastFri.getMonth()+1)}-${pad(lastFri.getDate())}`,
+      to:`${lastThu.getFullYear()}-${pad(lastThu.getMonth()+1)}-${pad(lastThu.getDate())}`
     };
   }
   if(adminPeriod==='custom'){

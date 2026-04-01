@@ -941,8 +941,17 @@ function signInWithGoogle(){
 async function signOut(){
   if(currentSession){
     await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+currentSession.access_token}});
+    // 로그아웃 시 해당 계정 캐시 완전 삭제
+    cacheClear();
+    localStorage.removeItem(CARRY_KEY);
+    localStorage.removeItem(REC_INJECTED_KEY);
   }
   currentSession=null;
+  adminRole='';
+  adminAssignedTeam='';
+  adminAllData=[];
+  recurringCache=null;
+  curDay={tasks:[],agenda:'',memo:''};
   localStorage.removeItem('sb_session');
   showLoginScreen();
 }
@@ -1002,10 +1011,21 @@ function showLoginScreen(){
   document.getElementById('main-app').style.display='none';
 }
 
+let _lastUserId='';
 function showMainApp(){
   document.getElementById('setup-screen').style.display='none';
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-app').style.display='block';
+  // 계정이 바뀌었으면 캐시 초기화
+  const uid=currentSession?.user?.id||'';
+  if(_lastUserId && _lastUserId!==uid){
+    cacheClear();
+    curDay={tasks:[],agenda:'',memo:''};
+    recurringCache=null;
+    localStorage.removeItem(CARRY_KEY);
+    localStorage.removeItem(REC_INJECTED_KEY);
+  }
+  _lastUserId=uid;
   // 헤더에 이메일 표시
   const email=currentSession?.user?.email||'';
   const emailEl=document.getElementById('user-email');
@@ -1013,9 +1033,14 @@ function showMainApp(){
 }
 
 /* ─ CACHE ─ */
-const CACHE_KEY='daily_cache_v2';
-function cacheGet(k){try{return(JSON.parse(localStorage.getItem(CACHE_KEY)||'{}')||{})[k]||null;}catch{return null;}}
-function cacheSet(k,v){try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'{}');c[k]=v;localStorage.setItem(CACHE_KEY,JSON.stringify(c));}catch{}}
+function getCacheKey(){
+  // 계정별로 캐시를 분리 — user_id 기반
+  const uid=currentSession?.user?.id||'anon';
+  return 'daily_cache_v3_'+uid;
+}
+function cacheGet(k){try{const key=getCacheKey();return(JSON.parse(localStorage.getItem(key)||'{}')||{})[k]||null;}catch{return null;}}
+function cacheSet(k,v){try{const key=getCacheKey();const c=JSON.parse(localStorage.getItem(key)||'{}');c[k]=v;localStorage.setItem(key,JSON.stringify(c));}catch{}}
+function cacheClear(){try{localStorage.removeItem(getCacheKey());}catch{}}
 
 /* ─ SUPABASE API ─ */
 async function sbGet(date){

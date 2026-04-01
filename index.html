@@ -353,7 +353,7 @@
     .cal-task-item{font-size:9px}
   }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
 <body>
 
@@ -662,7 +662,7 @@
       </div>
 
       <!-- 기간 직접 선택 -->
-      <div id="admin-custom-range" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div id="admin-custom-range" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:12px;color:var(--text2);">시작일</span>
         <input type="date" id="admin-date-from" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;">
         <span style="font-size:12px;color:var(--text2);">~</span>
@@ -670,10 +670,18 @@
         <button onclick="loadAdminData()" style="padding:5px 14px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;font-weight:600;">조회</button>
       </div>
 
+      <!-- 팀/파트 필터 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text2);font-weight:500;">팀/파트 필터:</span>
+        <div id="admin-team-filter-wrap" style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="ptab active" onclick="setAdminTeamFilter('',this)">전체</button>
+        </div>
+      </div>
+
       <!-- 요약 카드 -->
       <div id="admin-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
 
-      <!-- 사용자 달성률 비교 -->
+      <!-- 사용자별 달성률 -->
       <div class="section-card" style="margin-bottom:16px;">
         <div class="section-head"><h3>👥 사용자별 달성률</h3></div>
         <div id="admin-user-rates" style="padding:14px 18px;"></div>
@@ -696,14 +704,14 @@
         <div id="admin-user-tasks" style="padding:0;"></div>
       </div>
 
-      <!-- 접속 사용자 목록 -->
-      <div class="section-card">
-        <div class="section-head"><h3>🔑 전체 사용자 목록</h3></div>
+      <!-- 전체 사용자 목록 + 팀 관리 -->
+      <div class="section-card" style="margin-bottom:16px;">
+        <div class="section-head"><h3>🔑 전체 사용자 목록 · 팀 설정</h3></div>
         <div id="admin-user-list" style="padding:14px 18px;"></div>
       </div>
 
       <!-- 관리자 설정 -->
-      <div class="section-card" style="margin-top:16px;">
+      <div class="section-card">
         <div class="section-head"><h3>⚙️ 관리자 설정</h3></div>
         <div style="padding:14px 18px;">
           <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">관리자 이메일 추가/삭제</div>
@@ -2517,6 +2525,260 @@ function updateDlPreview(){
 }
 document.getElementById('dl-date').addEventListener('change',updateDlPreview);
 
+/* ── Excel 스타일 헬퍼 ── */
+function xlsStyle(wb_unused){
+  // 색상 팔레트
+  const C={
+    headerBg:'2C2825',headerFg:'FFFFFF',
+    subHeaderBg:'8B7355',subHeaderFg:'FFFFFF',
+    accentBg:'F0EBE3',accentFg:'2C2825',
+    doneBg:'EAF3ED',doneFg:'3B6D11',
+    undoneBg:'FDEEED',undoneFg:'A32D2D',
+    carryBg:'EDF2F7',carryFg:'185FA5',
+    border:'D4CFC8',
+    altRow:'FAF9F7',
+    white:'FFFFFF',
+    totalBg:'F5F3EF',
+    titleFg:'8B7355'
+  };
+  const border={style:'thin',color:{argb:'FFD4CFC8'}};
+  const allBorder={top:border,left:border,bottom:border,right:border};
+
+  function hdr(cell,txt,bg,fg,sz,bold,align,wrapText){
+    cell.value=txt;
+    cell.font={name:'Malgun Gothic',size:sz||10,bold:bold!==false,color:{argb:'FF'+fg}};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+bg}};
+    cell.alignment={horizontal:align||'center',vertical:'middle',wrapText:!!wrapText};
+    cell.border=allBorder;
+  }
+  function data(cell,val,opts){
+    opts=opts||{};
+    cell.value=val;
+    cell.font={name:'Malgun Gothic',size:opts.sz||10,bold:opts.bold||false,color:{argb:'FF'+(opts.fg||'2C2825')}};
+    if(opts.bg)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+opts.bg}};
+    cell.alignment={horizontal:opts.align||'left',vertical:'middle',wrapText:!!opts.wrap};
+    cell.border=allBorder;
+  }
+  return{C,hdr,data,allBorder};
+}
+
+async function buildExcelWorkbook(dayDatas,userName,dates,opts){
+  const wb=new ExcelJS.Workbook();
+  wb.creator='Daily Task Manager';
+  wb.created=new Date();
+  const {C,hdr,data}=xlsStyle();
+
+  // ══════════════════════════════
+  // 시트1: 주간 업무 일지 (메인)
+  // ══════════════════════════════
+  const ws1=wb.addWorksheet('주간 업무 일지',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1}});
+  ws1.views=[{showGridLines:false}];
+  ws1.columns=[
+    {key:'a',width:12},{key:'b',width:7},{key:'c',width:5},
+    {key:'d',width:12},{key:'e',width:36},{key:'f',width:9},
+    {key:'g',width:9},{key:'h',width:22},{key:'i',width:11}
+  ];
+
+  // 타이틀 행
+  ws1.mergeCells('A1:I1');
+  const titleCell=ws1.getCell('A1');
+  titleCell.value='주 간 업 무 일 지';
+  titleCell.font={name:'Malgun Gothic',size:16,bold:true,color:{argb:'FF'+C.headerBg}};
+  titleCell.alignment={horizontal:'center',vertical:'middle'};
+  titleCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
+  ws1.getRow(1).height=36;
+
+  // 정보 행
+  ws1.mergeCells('A2:C2');ws1.mergeCells('D2:F2');ws1.mergeCells('G2:I2');
+  data(ws1.getCell('A2'),`작성자: ${userName}`,{bold:true,bg:'F0EBE3',align:'center'});
+  data(ws1.getCell('D2'),`기간: ${dates[0]} (목) ~ ${dates[6]} (수)`,{bold:true,bg:'F0EBE3',align:'center'});
+  data(ws1.getCell('G2'),`작성일: ${todayStr()}`,{bold:true,bg:'F0EBE3',align:'center'});
+  ws1.getRow(2).height=20;
+
+  // 빈 행
+  ws1.addRow([]);ws1.getRow(3).height=6;
+
+  // 컬럼 헤더
+  const hRow=ws1.addRow([]);
+  hRow.height=22;
+  const hCols=['날짜','요일','No','구분','업무 내용','우선순위','완료','비고','비고(이월)'];
+  hCols.forEach((h,i)=>{
+    const cell=hRow.getCell(i+1);
+    hdr(cell,h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
+  });
+
+  // 데이터 행
+  let rowNum=5;
+  let totalAll=0,doneAll=0;
+  dayDatas.forEach(({date,data:d})=>{
+    const tasks=d.tasks||[];
+    const [yy,mm,dd2]=date.split('-').map(Number);
+    const dow=new Date(yy,mm-1,dd2).getDay();
+    const isWeekend=dow===0||dow===6;
+    const total=tasks.length,done=tasks.filter(t=>t.done).length;
+    totalAll+=total;doneAll+=done;
+
+    if(!tasks.length){
+      const r=ws1.addRow([]);r.height=20;
+      const bg=isWeekend?'EDF2F7':C.white;
+      data(r.getCell(1),date,{bg,align:'center'});
+      data(r.getCell(2),DAYS[dow]+'요일',{bg,align:'center'});
+      for(let i=3;i<=8;i++)data(r.getCell(i),'',{bg});
+      data(r.getCell(9),'(업무없음)',{bg,fg:'9E9890',align:'center'});
+      rowNum++;
+    } else {
+      const startRow=rowNum;
+      tasks.forEach((t,i)=>{
+        const r=ws1.addRow([]);r.height=20;
+        const isAlt=i%2===1;
+        const bg=isWeekend?'EDF2F7':isAlt?C.altRow:C.white;
+        const doneBg=t.done?C.doneBg:(t.carriedFrom?C.carryBg:bg);
+
+        if(i===0){
+          data(r.getCell(1),date,{bg,align:'center',bold:true});
+          data(r.getCell(2),DAYS[dow]+'요일',{bg,align:'center'});
+        } else {
+          data(r.getCell(1),'',{bg});
+          data(r.getCell(2),'',{bg});
+        }
+        data(r.getCell(3),i+1,{bg,align:'center'});
+        data(r.getCell(4),t.category||'',{bg,align:'center'});
+        data(r.getCell(5),t.name||'',{bg:doneBg,wrap:true});
+        const priMap={1:'낮음',2:'보통',3:'높음',4:'최우선'};
+        const priBg={1:C.white,2:'FFF9E6',3:'FFF0E6',4:C.undoneBg};
+        data(r.getCell(6),priMap[t.priority]||'',{bg:priBg[t.priority]||bg,align:'center'});
+        data(r.getCell(7),t.done?'● 완료':'○ 미완료',{bg:t.done?C.doneBg:C.undoneBg,fg:t.done?C.doneFg:C.undoneFg,align:'center',bold:true});
+        data(r.getCell(8),t.note||'',{bg,wrap:true});
+        data(r.getCell(9),t.carriedFrom?`↩ ${t.carriedFrom}`:(t.isRecurring?'↻ 반복':''),{bg:t.carriedFrom?C.carryBg:bg,fg:t.carriedFrom?C.carryFg:'9E9890',align:'center'});
+        rowNum++;
+      });
+      // 날짜 셀 병합
+      if(tasks.length>1)ws1.mergeCells(`A${startRow+4}:A${rowNum+3}`);
+      if(tasks.length>1)ws1.mergeCells(`B${startRow+4}:B${rowNum+3}`);
+    }
+
+    // 날짜 구분선
+    if(opts.incMemo&&d.memo&&d.memo.trim()){
+      const mr=ws1.addRow([]);mr.height=28;
+      ws1.mergeCells(`A${rowNum+4}:B${rowNum+4}`);
+      ws1.mergeCells(`C${rowNum+4}:I${rowNum+4}`);
+      data(mr.getCell(1),'특이사항',{bg:C.accentBg,bold:true,align:'center',fg:C.titleFg});
+      data(mr.getCell(3),d.memo,{bg:'FDFCFB',wrap:true,fg:'2C2825'});
+      rowNum++;
+    }
+
+    // 구분 행
+    const sepRow=ws1.addRow([]);sepRow.height=4;
+    for(let i=1;i<=9;i++){
+      const c=ws1.getCell(`${String.fromCharCode(64+i)}${rowNum+4}`);
+      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8E4DE'}};
+    }
+    rowNum++;
+  });
+
+  // 합계 행
+  const totalRow=ws1.addRow([]);totalRow.height=24;
+  const totalRate=totalAll?Math.round(doneAll/totalAll*100):0;
+  ws1.mergeCells(`A${rowNum+4}:D${rowNum+4}`);
+  hdr(ws1.getCell(`A${rowNum+4}`),'합 계',C.headerBg,C.headerFg,11,true,'center');
+  hdr(ws1.getCell(`E${rowNum+4}`),`전체 ${totalAll}개 중 ${doneAll}개 완료`,C.headerBg,C.headerFg,10,false,'center');
+  ws1.mergeCells(`E${rowNum+4}:F${rowNum+4}`);
+  hdr(ws1.getCell(`G${rowNum+4}`),`달성률 ${totalRate}%`,totalRate>=80?C.doneFg:totalRate>=50?C.titleFg:C.undoneFg,C.headerFg,12,true,'center');
+  ws1.mergeCells(`G${rowNum+4}:I${rowNum+4}`);
+
+  // ══════════════════════════════
+  // 시트2: 회의록
+  // ══════════════════════════════
+  if(opts.incMinutes){
+    const ws2=wb.addWorksheet('회의록',{pageSetup:{paperSize:9,orientation:'portrait'}});
+    ws2.views=[{showGridLines:false}];
+    ws2.columns=[{width:12},{width:20},{width:25},{width:16},{width:20},{width:42},{width:32}];
+
+    ws2.mergeCells('A1:G1');
+    const t2=ws2.getCell('A1');
+    t2.value='회 의 록';
+    t2.font={name:'Malgun Gothic',size:14,bold:true,color:{argb:'FF'+C.headerBg}};
+    t2.alignment={horizontal:'center',vertical:'middle'};
+    t2.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
+    ws2.getRow(1).height=32;
+
+    ws2.addRow([]);ws2.getRow(2).height=8;
+
+    const mh=ws2.addRow([]);mh.height=22;
+    ['날짜','관련 업무','회의 제목','일시','참석자','내용 및 논의사항','결정사항 / 액션아이템'].forEach((h,i)=>{
+      hdr(mh.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
+    });
+
+    let hasMin=false;
+    dayDatas.forEach(({date,data:d})=>{
+      (d.tasks||[]).filter(t=>t.minutesTitle).forEach((t,i)=>{
+        hasMin=true;
+        const r=ws2.addRow([]);r.height=60;
+        const bg=i%2===0?C.white:C.altRow;
+        data(r.getCell(1),date,{bg,align:'center'});
+        data(r.getCell(2),t.name||'',{bg,wrap:true});
+        data(r.getCell(3),t.minutesTitle||'',{bg,bold:true,wrap:true});
+        data(r.getCell(4),t.minutesDatetime||'',{bg,align:'center'});
+        data(r.getCell(5),t.minutesAttendees||'',{bg,wrap:true});
+        data(r.getCell(6),t.minutesContent||'',{bg,wrap:true});
+        data(r.getCell(7),t.minutesAction||'',{bg,wrap:true});
+      });
+    });
+    if(!hasMin){
+      const r=ws2.addRow([]);
+      ws2.mergeCells(`A4:G4`);
+      data(r.getCell(1),'이번 주 회의록이 없어요',{fg:'9E9890',align:'center'});
+    }
+  }
+
+  // ══════════════════════════════
+  // 시트3: 이월 업무
+  // ══════════════════════════════
+  if(opts.incCarry){
+    const ws3=wb.addWorksheet('이월 업무',{pageSetup:{paperSize:9,orientation:'portrait'}});
+    ws3.views=[{showGridLines:false}];
+    ws3.columns=[{width:12},{width:8},{width:12},{width:35},{width:12},{width:12}];
+
+    ws3.mergeCells('A1:F1');
+    const t3=ws3.getCell('A1');
+    t3.value='이 월 업 무 현 황';
+    t3.font={name:'Malgun Gothic',size:14,bold:true,color:{argb:'FF'+C.headerBg}};
+    t3.alignment={horizontal:'center',vertical:'middle'};
+    t3.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
+    ws3.getRow(1).height=32;
+    ws3.addRow([]);ws3.getRow(2).height=8;
+
+    const ch=ws3.addRow([]);ch.height=22;
+    ['이월 날짜','요일','이월 출처','업무명','구분','완료여부'].forEach((h,i)=>{
+      hdr(ch.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
+    });
+
+    let hasCarry=false;
+    dayDatas.forEach(({date,data:d})=>{
+      const [yy,mm,dd2]=date.split('-').map(Number);
+      const dow=new Date(yy,mm-1,dd2).getDay();
+      (d.tasks||[]).filter(t=>t.carriedFrom).forEach((t,i)=>{
+        hasCarry=true;
+        const r=ws3.addRow([]);r.height=20;
+        const bg=i%2===0?C.white:C.altRow;
+        data(r.getCell(1),date,{bg,align:'center'});
+        data(r.getCell(2),DAYS[dow]+'요일',{bg,align:'center'});
+        data(r.getCell(3),`↩ ${t.carriedFrom}`,{bg:C.carryBg,fg:C.carryFg,align:'center'});
+        data(r.getCell(4),t.name||'',{bg,wrap:true});
+        data(r.getCell(5),t.category||'',{bg,align:'center'});
+        data(r.getCell(6),t.done?'● 완료':'○ 미완료',{bg:t.done?C.doneBg:C.undoneBg,fg:t.done?C.doneFg:C.undoneFg,align:'center',bold:true});
+      });
+    });
+    if(!hasCarry){
+      const r=ws3.addRow([]);
+      ws3.mergeCells('A4:F4');
+      data(r.getCell(1),'이번 주 이월 업무가 없어요 ✓',{fg:'3B6D11',align:'center',bold:true,bg:C.doneBg});
+    }
+  }
+
+  return wb;
+}
+
 async function downloadWeeklyReport(){
   const val=document.getElementById('dl-date').value;
   if(!val){toast('날짜를 선택해 주세요');return;}
@@ -2524,13 +2786,14 @@ async function downloadWeeklyReport(){
   const dt=new Date(y,m-1,d);
   if(dt.getDay()!==4){toast('목요일을 선택해 주세요');return;}
 
-  const incTasks=document.getElementById('dl-tasks').checked;
-  const incMemo=document.getElementById('dl-memo').checked;
-  const incSummary=document.getElementById('dl-summary').checked;
-  const incCarry=document.getElementById('dl-carry').checked;
-  const incMinutes=document.getElementById('dl-minutes').checked;
+  const opts={
+    incTasks:document.getElementById('dl-tasks').checked,
+    incMemo:document.getElementById('dl-memo').checked,
+    incSummary:document.getElementById('dl-summary').checked,
+    incCarry:document.getElementById('dl-carry').checked,
+    incMinutes:document.getElementById('dl-minutes').checked,
+  };
 
-  // 날짜 범위 생성 (목~수 7일)
   const dates=[];
   for(let i=0;i<7;i++){
     const dd=new Date(y,m-1,d+i);
@@ -2538,128 +2801,27 @@ async function downloadWeeklyReport(){
   }
 
   showLoading('데이터 불러오는 중...');
-  // 각 날짜 데이터 병렬 로드
   const dayDatas=await Promise.all(dates.map(async date=>{
     const data=await fetchDay(date);
-    return {date,data};
+    return{date,data};
   }));
-  hideLoading();
 
-  const wb=XLSX.utils.book_new();
+  showLoading('Excel 생성 중...');
   const email=currentSession?.user?.email||'';
   const userName=email.split('@')[0]||'사용자';
 
-  // ── 시트1: 달성률 요약 ──
-  if(incSummary){
-    const summaryRows=[
-      ['주간업무보고'],
-      ['작성자', userName],
-      ['기간', `${dates[0]} (목) ~ ${dates[6]} (수)`],
-      [''],
-      ['날짜','요일','총 업무','완료','미완료','달성률','주요 일정'],
-    ];
-    let totalAll=0,doneAll=0;
-    dayDatas.forEach(({date,data})=>{
-      const [yy,mm,dd]=date.split('-').map(Number);
-      const dow2=new Date(yy,mm-1,dd).getDay();
-      const tasks=data.tasks||[];
-      const total=tasks.length,done=tasks.filter(t=>t.done).length;
-      totalAll+=total;doneAll+=done;
-      const rate=total?Math.round(done/total*100):0;
-      summaryRows.push([date,DAYS[dow2]+'요일',total,done,total-done,rate+'%',data.agenda||'']);
-    });
-    summaryRows.push(['']);
-    const totalRate=totalAll?Math.round(doneAll/totalAll*100):0;
-    summaryRows.push(['합계','',totalAll,doneAll,totalAll-doneAll,totalRate+'%','']);
-    const ws1=XLSX.utils.aoa_to_sheet(summaryRows);
-    ws1['!cols']=[{wch:14},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:30}];
-    ws1['A1']={v:'주간업무보고',t:'s'};
-    XLSX.utils.book_append_sheet(wb,ws1,'달성률 요약');
-  }
+  const wb=await buildExcelWorkbook(dayDatas,userName,dates,opts);
 
-  // ── 시트2: 날짜별 업무 목록 ──
-  if(incTasks){
-    const taskRows=[['날짜','요일','No','구분','업무내용','우선순위','완료','비고','이월여부']];
-    dayDatas.forEach(({date,data})=>{
-      const [yy,mm,dd]=date.split('-').map(Number);
-      const dow2=new Date(yy,mm-1,dd).getDay();
-      const tasks=data.tasks||[];
-      if(!tasks.length){
-        taskRows.push([date,DAYS[dow2]+'요일','','','(업무 없음)','','','','']);
-      } else {
-        tasks.forEach((t,i)=>{
-          const priLabel=['','낮음','보통','높음','최우선'][t.priority]||'';
-          const carryStr=t.carriedFrom?`🔄 ${t.carriedFrom}`:'';
-          const recStr=t.isRecurring?'🔁 반복':'';
-          taskRows.push([
-            i===0?date:'',
-            i===0?DAYS[dow2]+'요일':'',
-            i+1,
-            t.category||'',
-            t.name||'',
-            priLabel,
-            t.done?'✓ 완료':'○ 미완료',
-            t.note||'',
-            carryStr||recStr||''
-          ]);
-        });
-      }
-      taskRows.push(['','','','','','','','','']);
-    });
-    const ws2=XLSX.utils.aoa_to_sheet(taskRows);
-    ws2['!cols']=[{wch:14},{wch:8},{wch:5},{wch:10},{wch:35},{wch:8},{wch:10},{wch:20},{wch:12}];
-    XLSX.utils.book_append_sheet(wb,ws2,'업무 목록');
-  }
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`주간업무일지_${userName}_${dates[0]}_${dates[6]}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 
-  // ── 시트3: 진행 특이사항 ──
-  if(incMemo){
-    const memoRows=[['날짜','요일','진행 특이사항']];
-    dayDatas.forEach(({date,data})=>{
-      const [yy,mm,dd]=date.split('-').map(Number);
-      const dow2=new Date(yy,mm-1,dd).getDay();
-      if(data.memo&&data.memo.trim()){
-        memoRows.push([date,DAYS[dow2]+'요일',data.memo]);
-      }
-    });
-    if(memoRows.length===1)memoRows.push(['','','(이번 주 특이사항 없음)']);
-    const ws3=XLSX.utils.aoa_to_sheet(memoRows);
-    ws3['!cols']=[{wch:14},{wch:8},{wch:60}];
-    XLSX.utils.book_append_sheet(wb,ws3,'특이사항');
-  }
-
-  // ── 시트4: 이월 업무 ──
-  if(incCarry){
-    const carryRows=[['이월된 날짜','요일','이월 출처','업무명','구분','완료여부']];
-    dayDatas.forEach(({date,data})=>{
-      const [yy,mm,dd]=date.split('-').map(Number);
-      const dow2=new Date(yy,mm-1,dd).getDay();
-      (data.tasks||[]).filter(t=>t.carriedFrom).forEach(t=>{
-        carryRows.push([date,DAYS[dow2]+'요일',`🔄 ${t.carriedFrom}`,t.name,t.category||'',t.done?'✓ 완료':'○ 미완료']);
-      });
-    });
-    if(carryRows.length===1)carryRows.push(['','','','(이월 업무 없음)','','']);
-    const ws4=XLSX.utils.aoa_to_sheet(carryRows);
-    ws4['!cols']=[{wch:14},{wch:8},{wch:12},{wch:35},{wch:10},{wch:10}];
-    XLSX.utils.book_append_sheet(wb,ws4,'이월 업무');
-  }
-
-  // ── 시트5: 회의록 ──
-  if(incMinutes){
-    const minRows=[['날짜','업무명','회의 제목','일시','참석자','내용','결정사항']];
-    dayDatas.forEach(({date,data})=>{
-      (data.tasks||[]).filter(t=>t.minutesTitle).forEach(t=>{
-        minRows.push([date,t.name,t.minutesTitle,t.minutesDatetime||'',t.minutesAttendees||'',t.minutesContent||'',t.minutesAction||'']);
-      });
-    });
-    if(minRows.length===1)minRows.push(['','','(이번 주 회의록 없음)','','','','']);
-    const ws5=XLSX.utils.aoa_to_sheet(minRows);
-    ws5['!cols']=[{wch:14},{wch:20},{wch:25},{wch:18},{wch:20},{wch:40},{wch:30}];
-    XLSX.utils.book_append_sheet(wb,ws5,'회의록');
-  }
-
-  // 다운로드
-  const fileName=`주간업무보고_${userName}_${dates[0]}_${dates[6]}.xlsx`;
-  XLSX.writeFile(wb,fileName);
+  hideLoading();
   closeDownloadModal();
   toast('📥 Excel 파일이 다운로드됐어요');
 }
@@ -2730,33 +2892,41 @@ function getAdminDateRange(){
 }
 
 /* ── 전체 데이터 로드 ── */
+let adminTeamFilter=''; // 현재 팀 필터
+let userProfiles={}; // {user_id: {name, team}}
+
 async function loadAdminData(){
   if(!isAdmin){toast('관리자 권한이 없어요');return;}
   showLoading('전체 데이터 불러오는 중...');
-
   const {from,to}=getAdminDateRange();
-
-  // service_role 없이 anon으로 모든 사용자 데이터 가져오기
-  // admin_user_summary 뷰 + daily_tasks 조회
   try{
-    // 1) 전체 사용자 목록 (admin_user_summary 뷰)
+    // 1) 사용자 목록
     const userRes=await fetch(
       `${SB_URL}/rest/v1/admin_user_summary?select=user_id,email,joined_at,last_sign_in_at,total_days,last_active&order=email.asc`,
       {headers:getSBHeaders()}
     );
     const users=await userRes.json();
+    console.log('admin users:', users?.length, users);
+    if(!userRes.ok){console.error('user fetch error:',users);hideLoading();toast('사용자 목록 조회 실패');return;}
 
-    // 2) 기간 내 전체 daily_tasks (RLS 우회 위해 뷰 필요 - 일단 본인 것만)
-    // 관리자는 모든 사용자 데이터를 볼 수 있도록 별도 RLS 정책 필요
+    // 2) 프로필(이름/팀) 로드
+    const profRes=await fetch(
+      `${SB_URL}/rest/v1/user_profiles?select=user_id,name,team`,
+      {headers:getSBHeaders()}
+    );
+    const profiles=await profRes.json();
+    userProfiles={};
+    (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||''};});
+
+    // 3) 기간 내 daily_tasks
     const taskRes=await fetch(
       `${SB_URL}/rest/v1/daily_tasks?date=gte.${from}&date=lte.${to}&select=user_id,date,data&order=date.asc`,
       {headers:getSBHeaders()}
     );
     const allTasks=await taskRes.json();
+    console.log('admin tasks:', allTasks?.length);
 
     hideLoading();
-
-    // 사용자별로 그룹핑
     const tasksByUser={};
     (allTasks||[]).forEach(row=>{
       if(!tasksByUser[row.user_id])tasksByUser[row.user_id]=[];
@@ -2766,6 +2936,8 @@ async function loadAdminData(){
     adminAllData=(users||[]).map(u=>({
       email:u.email,
       user_id:u.user_id,
+      name:userProfiles[u.user_id]?.name||u.email.split('@')[0],
+      team:userProfiles[u.user_id]?.team||'',
       joined_at:u.joined_at,
       last_sign_in_at:u.last_sign_in_at,
       total_days:u.total_days||0,
@@ -2773,6 +2945,7 @@ async function loadAdminData(){
       days:tasksByUser[u.user_id]||[]
     }));
 
+    renderAdminTeamFilter();
     renderAdminDashboard(from,to);
   }catch(e){
     hideLoading();
@@ -2781,12 +2954,34 @@ async function loadAdminData(){
   }
 }
 
+/* ── 팀 필터 버튼 렌더 ── */
+function renderAdminTeamFilter(){
+  const teams=[...new Set(adminAllData.map(u=>u.team).filter(Boolean))].sort();
+  const wrap=document.getElementById('admin-team-filter-wrap');
+  wrap.innerHTML=`<button class="ptab ${adminTeamFilter===''?'active':''}" onclick="setAdminTeamFilter('',this)">전체</button>`+
+    teams.map(t=>`<button class="ptab ${adminTeamFilter===t?'active':''}" onclick="setAdminTeamFilter('${esc(t)}',this)">${esc(t)}</button>`).join('');
+}
+
+function setAdminTeamFilter(team,btn){
+  adminTeamFilter=team;
+  document.querySelectorAll('#admin-team-filter-wrap .ptab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const {from,to}=getAdminDateRange();
+  renderAdminDashboard(from,to);
+}
+
+function getFilteredUsers(){
+  if(!adminTeamFilter)return adminAllData;
+  return adminAllData.filter(u=>u.team===adminTeamFilter);
+}
+
 /* ── 대시보드 렌더 ── */
 function renderAdminDashboard(from,to){
-  const totalUsers=adminAllData.length;
-  const activeUsers=adminAllData.filter(u=>u.days.length>0).length;
+  const filtered=getFilteredUsers();
+  const totalUsers=filtered.length;
+  const activeUsers=filtered.filter(u=>u.days.length>0).length;
   let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
-  adminAllData.forEach(u=>u.days.forEach(d=>{
+  filtered.forEach(u=>u.days.forEach(d=>{
     const tasks=d.data?.tasks||[];
     totalTasks+=tasks.length;
     totalDone+=tasks.filter(t=>t.done).length;
@@ -2794,69 +2989,136 @@ function renderAdminDashboard(from,to){
     totalCarry+=tasks.filter(t=>t.carriedFrom).length;
   }));
   const avgRate=totalTasks?Math.round(totalDone/totalTasks*100):0;
+  const filterLabel=adminTeamFilter?` (${adminTeamFilter})`:'';
 
-  // 요약 카드
   document.getElementById('admin-summary-cards').innerHTML=`
-    <div class="sum-card"><div class="sum-lbl">전체 사용자</div><div class="sum-val">${totalUsers}명</div><div class="sum-sub">활성 ${activeUsers}명</div></div>
-    <div class="sum-card"><div class="sum-lbl">팀 평균 달성률</div><div class="sum-val">${avgRate}%</div><div class="sum-sub">${from} ~ ${to}</div></div>
+    <div class="sum-card"><div class="sum-lbl">사용자${filterLabel}</div><div class="sum-val">${totalUsers}명</div><div class="sum-sub">활성 ${activeUsers}명</div></div>
+    <div class="sum-card"><div class="sum-lbl">평균 달성률</div><div class="sum-val">${avgRate}%</div><div class="sum-sub">${from} ~ ${to}</div></div>
     <div class="sum-card"><div class="sum-lbl">미완료 업무</div><div class="sum-val" style="color:var(--red);">${totalUndone}</div><div class="sum-sub">전체 ${totalTasks}개 중</div></div>
     <div class="sum-card"><div class="sum-lbl">이월 횟수</div><div class="sum-val" style="color:var(--blue);">${totalCarry}</div><div class="sum-sub">기간 내 합계</div></div>
   `;
 
-  // 사용자별 달성률
+  // 팀별 그룹핑해서 달성률 표시
   const rateEl=document.getElementById('admin-user-rates');
-  if(!adminAllData.length){rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';return;}
-  rateEl.innerHTML=adminAllData.map(u=>{
-    const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
-    const total=tasks.length,done=tasks.filter(t=>t.done).length;
-    const rate=total?Math.round(done/total*100):0;
-    const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
-    return`<div class="admin-user-row">
-      <div class="admin-user-email">${esc(u.email)}</div>
-      <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
-      <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
-      <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
-    </div>`;
-  }).join('');
+  if(!filtered.length){rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';return;}
+
+  // 팀별로 묶기
+  const teamGroups={};
+  filtered.forEach(u=>{
+    const t=u.team||'(팀 미지정)';
+    if(!teamGroups[t])teamGroups[t]=[];
+    teamGroups[t].push(u);
+  });
+
+  let rateHtml='';
+  Object.entries(teamGroups).sort().forEach(([team,users])=>{
+    rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(team)}</div>`;
+    users.forEach(u=>{
+      const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+      const total=tasks.length,done=tasks.filter(t=>t.done).length;
+      const rate=total?Math.round(done/total*100):0;
+      const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
+      rateHtml+=`<div class="admin-user-row">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
+          <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
+        </div>
+        <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
+        <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
+        <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
+      </div>`;
+    });
+  });
+  rateEl.innerHTML=rateHtml;
 
   // 미완료/이월 현황
   const undoneEl=document.getElementById('admin-undone-list');
   const undoneItems=[];
-  adminAllData.forEach(u=>u.days.forEach(d=>{
+  filtered.forEach(u=>u.days.forEach(d=>{
     (d.data?.tasks||[]).filter(t=>!t.done).forEach(t=>{
-      undoneItems.push({email:u.email,date:d.date,name:t.name,carry:t.carriedFrom||''});
+      undoneItems.push({name:u.name,email:u.email,team:u.team,date:d.date,task:t.name,carry:t.carriedFrom||''});
     });
   }));
   if(!undoneItems.length){
     undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 미완료 업무가 없어요!</div>';
   } else {
     undoneEl.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">총 ${undoneItems.length}개</div>`+
-    undoneItems.slice(0,20).map(item=>`
+    undoneItems.slice(0,30).map(item=>`
       <div class="admin-undone-item">
-        <div class="admin-undone-name">${item.carry?`🔄 `:''  }${esc(item.name)}</div>
-        <div class="admin-undone-user">${esc(item.email.split('@')[0])} · ${item.date}</div>
+        <div class="admin-undone-name">${item.carry?'🔄 ':''}${esc(item.task)}</div>
+        <div class="admin-undone-user">${item.team?esc(item.team)+' · ':''}${esc(item.name)} · ${item.date}</div>
       </div>`).join('')+
-    (undoneItems.length>20?`<div style="font-size:12px;color:var(--text3);margin-top:6px;">외 ${undoneItems.length-20}개 더...</div>`:'');
+    (undoneItems.length>30?`<div style="font-size:12px;color:var(--text3);margin-top:6px;">외 ${undoneItems.length-30}개 더...</div>`:'');
   }
 
-  // 사용자 선택 드롭다운
+  // 사용자 선택 드롭다운 (팀별 그룹핑)
   const sel=document.getElementById('admin-user-select');
-  sel.innerHTML='<option value="">사용자 선택</option>'+
-    adminAllData.map(u=>`<option value="${esc(u.user_id)}">${esc(u.email)}</option>`).join('');
+  let selHtml='<option value="">사용자 선택</option>';
+  Object.entries(teamGroups).sort().forEach(([team,users])=>{
+    selHtml+=`<optgroup label="${esc(team)}">`;
+    users.forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)} (${esc(u.email)})</option>`; });
+    selHtml+=`</optgroup>`;
+  });
+  sel.innerHTML=selHtml;
 
-  // 사용자 목록
+  // 전체 사용자 목록 + 팀/이름 편집
   const userListEl=document.getElementById('admin-user-list');
-  userListEl.innerHTML=adminAllData.map(u=>`
-    <div class="admin-user-chip">
-      <div>
-        <div style="font-size:13px;font-weight:500;">${esc(u.email)}</div>
-        <div style="font-size:11px;color:var(--text3);">가입: ${u.joined_at?u.joined_at.slice(0,10):'—'} · 마지막 접속: ${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'} · 기록 ${u.total_days}일</div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);">최근 활동: ${u.last_active||'없음'}</div>
-    </div>`).join('');
+  userListEl.innerHTML=`
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">이름과 팀/파트를 설정하면 관리자 화면에서 구분해서 볼 수 있어요.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:var(--surface2);">
+        <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
+        <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
+        <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">팀/파트</th>
+        <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">마지막 접속</th>
+        <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">저장</th>
+      </tr></thead>
+      <tbody>
+        ${adminAllData.map(u=>`
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
+            <td style="padding:6px 10px;"><input id="pname_${u.user_id}" value="${esc(u.name)}" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;"></td>
+            <td style="padding:6px 10px;"><input id="pteam_${u.user_id}" value="${esc(u.team)}" placeholder="예: 홀카페팀" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;"></td>
+            <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'}</td>
+            <td style="padding:6px 10px;text-align:center;"><button onclick="saveUserProfile('${u.user_id}','${esc(u.email)}')" style="padding:4px 10px;background:var(--accent);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">저장</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
 
-  // 관리자 목록 로드
   loadAdminList();
+}
+
+/* ── 사용자 프로필 저장 ── */
+async function saveUserProfile(userId,email){
+  const name=document.getElementById('pname_'+userId)?.value||'';
+  const team=document.getElementById('pteam_'+userId)?.value||'';
+  try{
+    // upsert
+    const chk=await fetch(`${SB_URL}/rest/v1/user_profiles?user_id=eq.${userId}&select=user_id`,{headers:getSBHeaders()});
+    const ex=await chk.json();
+    let res;
+    if(ex&&ex.length>0){
+      res=await fetch(`${SB_URL}/rest/v1/user_profiles?user_id=eq.${userId}`,{
+        method:'PATCH',headers:{...getSBHeaders(),'Prefer':'return=minimal'},
+        body:JSON.stringify({name,team,updated_at:new Date().toISOString()})
+      });
+    } else {
+      res=await fetch(`${SB_URL}/rest/v1/user_profiles`,{
+        method:'POST',headers:{...getSBHeaders(),'Prefer':'return=minimal'},
+        body:JSON.stringify({user_id:userId,email,name,team})
+      });
+    }
+    if(res.status===200||res.status===201||res.status===204){
+      // 로컬 반영
+      const u=adminAllData.find(u=>u.user_id===userId);
+      if(u){u.name=name;u.team=team;}
+      userProfiles[userId]={name,team};
+      renderAdminTeamFilter();
+      toast(`✅ ${name||email} 저장됐어요`);
+    } else {
+      toast('저장 실패');
+    }
+  }catch(e){toast('오류: '+e.message);}
 }
 
 /* ── 사용자별 업무 목록 ── */
@@ -2873,12 +3135,13 @@ function renderAdminUserTasks(){
     const dow=new Date(y,m-1,dd).getDay();
     const tasks=d.data?.tasks||[];
     html+=`<div style="border-bottom:1px solid var(--border);padding:10px 18px;">
-      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일) · ${d.data?.agenda||''}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일)${d.data?.agenda?' · '+esc(d.data.agenda):''}</div>
       ${tasks.length?tasks.map(t=>`
         <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
           <span style="color:${t.done?'var(--green)':'var(--red)'};">${t.done?'✓':'○'}</span>
           <span style="flex:1;color:var(--text);">${t.carriedFrom?'🔄 ':''}${esc(t.category?`[${t.category}] `:'')}${esc(t.name)}</span>
           <span style="color:var(--text3);">${['','🟢','🟡','🟠','🔴'][t.priority]||''}</span>
+          ${t.note?`<span style="font-size:11px;color:var(--text3);">📎 ${esc(t.note)}</span>`:''}
         </div>`).join('')
       :'<div style="font-size:12px;color:var(--text3);">업무 없음</div>'}
       ${d.data?.memo?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:4px;">💬 ${esc(d.data.memo)}</div>`:''}
@@ -2892,53 +3155,147 @@ async function adminDownloadAll(){
   if(!adminAllData.length){toast('먼저 데이터를 불러와 주세요');return;}
   const {from,to}=getAdminDateRange();
   showLoading('Excel 생성 중...');
-  const wb=XLSX.utils.book_new();
 
-  // 시트1: 전체 요약
-  const summaryRows=[['주간업무보고 - 전체 요약'],['기간',`${from} ~ ${to}`],[''],
-    ['이메일','총 업무','완료','미완료','달성률','마지막 활동']];
-  adminAllData.forEach(u=>{
+  const wb=new ExcelJS.Workbook();
+  wb.creator='Daily Task Manager - Admin';
+  const {C,hdr,data}=xlsStyle();
+
+  // ── 시트1: 전체 팀 요약 ──
+  const ws1=wb.addWorksheet('전체 팀 요약');
+  ws1.views=[{showGridLines:false}];
+  ws1.columns=[{width:30},{width:9},{width:9},{width:9},{width:10},{width:16},{width:16}];
+
+  ws1.mergeCells('A1:G1');
+  const t1=ws1.getCell('A1');
+  t1.value='주간업무보고 — 전체 팀 요약';
+  t1.font={name:'Malgun Gothic',size:14,bold:true,color:{argb:'FF'+C.headerBg}};
+  t1.alignment={horizontal:'center',vertical:'middle'};
+  t1.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
+  ws1.getRow(1).height=32;
+
+  ws1.mergeCells('A2:G2');
+  const t2=ws1.getCell('A2');
+  t2.value=`기간: ${from} ~ ${to}   /   생성일: ${todayStr()}`;
+  t2.font={name:'Malgun Gothic',size:10,color:{argb:'FF8B7355'}};
+  t2.alignment={horizontal:'center',vertical:'middle'};
+  t2.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0EBE3'}};
+  ws1.getRow(2).height=18;
+
+  ws1.addRow([]);ws1.getRow(3).height=8;
+
+  const sh=ws1.addRow([]);sh.height=22;
+  ['이메일','총 업무','완료','미완료','달성률','마지막 기록','마지막 접속'].forEach((h,i)=>{
+    hdr(sh.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
+  });
+
+  let teamTotal=0,teamDone=0;
+  adminAllData.forEach((u,ui)=>{
     const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
     const total=tasks.length,done=tasks.filter(t=>t.done).length;
-    summaryRows.push([u.email,total,done,total-done,total?Math.round(done/total*100)+'%':'—',u.last_active||'없음']);
+    teamTotal+=total;teamDone+=done;
+    const rate=total?Math.round(done/total*100):0;
+    const r=ws1.addRow([]);r.height=20;
+    const bg=ui%2===0?C.white:C.altRow;
+    const rateBg=rate>=80?C.doneBg:rate>=50?'FFF9E6':C.undoneBg;
+    const rateFg=rate>=80?C.doneFg:rate>=50?'8B6914':C.undoneFg;
+    data(r.getCell(1),u.email,{bg,bold:true});
+    data(r.getCell(2),total,{bg,align:'center'});
+    data(r.getCell(3),done,{bg:C.doneBg,fg:C.doneFg,align:'center',bold:true});
+    data(r.getCell(4),total-done,{bg:total-done>0?C.undoneBg:bg,fg:total-done>0?C.undoneFg:'2C2825',align:'center'});
+    data(r.getCell(5),rate+'%',{bg:rateBg,fg:rateFg,align:'center',bold:true});
+    data(r.getCell(6),u.last_active||'없음',{bg,align:'center'});
+    data(r.getCell(7),u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'없음',{bg,align:'center'});
   });
-  const ws1=XLSX.utils.aoa_to_sheet(summaryRows);
-  ws1['!cols']=[{wch:30},{wch:8},{wch:8},{wch:8},{wch:8},{wch:14}];
-  XLSX.utils.book_append_sheet(wb,ws1,'전체 요약');
 
-  // 사용자별 시트
-  adminAllData.forEach(u=>{
-    if(!u.days.length)return;
-    const rows=[['날짜','요일','업무','구분','완료','우선순위','비고','이월','특이사항']];
-    u.days.forEach(d=>{
-      const [y,m,dd]=d.date.split('-').map(Number);
-      const dow=new Date(y,m-1,dd).getDay();
-      const tasks=d.data?.tasks||[];
-      if(!tasks.length){rows.push([d.date,DAYS[dow]+'요일','(업무없음)','','','','',d.data?.memo||'']);return;}
-      tasks.forEach((t,i)=>{
-        rows.push([
-          i===0?d.date:'',
-          i===0?DAYS[dow]+'요일':'',
-          t.name||'',t.category||'',
-          t.done?'완료':'미완료',
-          ['','낮음','보통','높음','최우선'][t.priority]||'',
-          t.note||'',
-          t.carriedFrom?`🔄 ${t.carriedFrom}`:'',
-          i===0?(d.data?.memo||''):''
-        ]);
-      });
-      rows.push([]);
-    });
+  // 팀 합계
+  const tr=ws1.addRow([]);tr.height=24;
+  const teamRate=teamTotal?Math.round(teamDone/teamTotal*100):0;
+  hdr(tr.getCell(1),'팀 합계',C.headerBg,C.headerFg,11,true,'center');
+  hdr(tr.getCell(2),teamTotal,C.headerBg,C.headerFg,11,true,'center');
+  hdr(tr.getCell(3),teamDone,C.headerBg,C.headerFg,11,true,'center');
+  hdr(tr.getCell(4),teamTotal-teamDone,C.headerBg,C.headerFg,11,true,'center');
+  hdr(tr.getCell(5),teamRate+'%',C.headerBg,C.headerFg,12,true,'center');
+  ws1.mergeCells(`F${ws1.rowCount}:G${ws1.rowCount}`);
+  hdr(tr.getCell(6),'',C.headerBg,C.headerFg,10,false,'center');
+
+  // ── 사용자별 시트 ──
+  for(const u of adminAllData){
+    if(!u.days.length)continue;
     const sheetName=u.email.split('@')[0].slice(0,28);
-    const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:12},{wch:7},{wch:30},{wch:10},{wch:8},{wch:8},{wch:20},{wch:10},{wch:30}];
-    XLSX.utils.book_append_sheet(wb,ws,sheetName);
-  });
+    const wsu=wb.addWorksheet(sheetName);
+    wsu.views=[{showGridLines:false}];
+    wsu.columns=[{width:12},{width:7},{width:5},{width:12},{width:34},{width:9},{width:9},{width:20},{width:11},{width:28}];
 
-  const fileName=`주간업무보고_전체_${from}_${to}.xlsx`;
-  XLSX.writeFile(wb,fileName);
+    wsu.mergeCells('A1:J1');
+    const tu=wsu.getCell('A1');
+    tu.value=`주간 업무 일지 — ${u.email}`;
+    tu.font={name:'Malgun Gothic',size:13,bold:true,color:{argb:'FF'+C.headerBg}};
+    tu.alignment={horizontal:'center',vertical:'middle'};
+    tu.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
+    wsu.getRow(1).height=30;
+
+    wsu.mergeCells('A2:J2');
+    const tu2=wsu.getCell('A2');
+    tu2.value=`기간: ${from} ~ ${to}`;
+    tu2.font={name:'Malgun Gothic',size:10,color:{argb:'FF8B7355'}};
+    tu2.alignment={horizontal:'center',vertical:'middle'};
+    tu2.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0EBE3'}};
+    wsu.getRow(2).height=18;
+    wsu.addRow([]);wsu.getRow(3).height=6;
+
+    const uh=wsu.addRow([]);uh.height=22;
+    ['날짜','요일','No','구분','업무 내용','우선순위','완료','비고','이월','특이사항'].forEach((h,i)=>{
+      hdr(uh.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
+    });
+
+    u.days.forEach(({date,data:d})=>{
+      const tasks=d?.tasks||[];
+      const [yy,mm,dd2]=date.split('-').map(Number);
+      const dow=new Date(yy,mm-1,dd2).getDay();
+      const memo=d?.memo||'';
+      if(!tasks.length){
+        const r=wsu.addRow([]);r.height=20;
+        data(r.getCell(1),date,{bg:C.altRow,align:'center'});
+        data(r.getCell(2),DAYS[dow]+'요일',{bg:C.altRow,align:'center'});
+        for(let i=3;i<=9;i++)data(r.getCell(i),'',{bg:C.altRow});
+        data(r.getCell(10),memo,{bg:C.altRow,wrap:true,fg:'9E9890'});
+      } else {
+        tasks.forEach((t,i)=>{
+          const r=wsu.addRow([]);r.height=20;
+          const bg=i%2===0?C.white:C.altRow;
+          if(i===0){
+            data(r.getCell(1),date,{bg,align:'center',bold:true});
+            data(r.getCell(2),DAYS[dow]+'요일',{bg,align:'center'});
+          } else {
+            data(r.getCell(1),'',{bg});data(r.getCell(2),'',{bg});
+          }
+          data(r.getCell(3),i+1,{bg,align:'center'});
+          data(r.getCell(4),t.category||'',{bg,align:'center'});
+          data(r.getCell(5),t.name||'',{bg:t.done?C.doneBg:(t.carriedFrom?C.carryBg:bg),wrap:true});
+          const priMap={1:'낮음',2:'보통',3:'높음',4:'최우선'};
+          data(r.getCell(6),priMap[t.priority]||'',{bg,align:'center'});
+          data(r.getCell(7),t.done?'● 완료':'○ 미완료',{bg:t.done?C.doneBg:C.undoneBg,fg:t.done?C.doneFg:C.undoneFg,align:'center',bold:true});
+          data(r.getCell(8),t.note||'',{bg,wrap:true});
+          data(r.getCell(9),t.carriedFrom?`↩ ${t.carriedFrom}`:(t.isRecurring?'↻ 반복':''),{bg:t.carriedFrom?C.carryBg:bg,fg:t.carriedFrom?C.carryFg:'9E9890',align:'center'});
+          data(r.getCell(10),i===0?memo:'',{bg,wrap:true,fg:'6B6560'});
+        });
+      }
+      // 구분선
+      const sep=wsu.addRow([]);sep.height=4;
+      for(let i=1;i<=10;i++)wsu.getCell(`${String.fromCharCode(64+i)}${wsu.rowCount}`).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8E4DE'}};
+    });
+  }
+
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`주간업무보고_전체팀_${from}_${to}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
   hideLoading();
-  toast('📥 전체 Excel이 다운로드됐어요');
+  toast('📥 전체 팀 Excel이 다운로드됐어요');
 }
 
 /* ── 관리자 목록 관리 ── */

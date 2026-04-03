@@ -436,7 +436,7 @@
       </div>
       <div class="section-card">
         <div class="section-head"><h3>📌 주요 일정</h3></div>
-        <textarea class="agenda-input" id="agenda-inp" placeholder="오늘의 주요 일정을 입력하세요... (Shift+Enter로 줄바꿈)" onblur="saveField('agenda')" rows="2" style="resize:none;line-height:1.6;"></textarea>
+        <textarea class="agenda-input" id="agenda-inp" placeholder="오늘의 주요 일정을 입력하세요... (Enter로 줄바꿈)" onblur="saveField('agenda')" rows="2" style="resize:none;line-height:1.6;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"></textarea>
       </div>
       <div class="section-card">
         <div class="section-head">
@@ -1387,6 +1387,7 @@ async function saveEdit(i){
 
 function priBlocks(p){const icons=['','🟢','🟡','🟠','🔴'];return `<span style="font-size:14px;">${icons[p]||''}</span>`;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function agendaDisp(s){return esc(String(s||'').replace(/\n+/g,' / ').trim());}
 
 function renderStatCards(){
   const tasks=curDay.tasks||[];
@@ -1708,7 +1709,7 @@ async function renderHistory(){
     card.innerHTML=`
       <div>
         <div class="hist-date">${item.date} (${DAYS[dt.getDay()]}요일)</div>
-        <div class="hist-agenda">${esc(item.summary.agenda||'주요 일정 없음')}</div>
+        <div class="hist-agenda">${agendaDisp(item.summary.agenda||'주요 일정 없음')}</div>
         <div class="hist-chips">
           <span class="chip done">✓ 완료 ${item.summary.done}개</span>
           ${item.summary.total-item.summary.done>0?`<span class="chip todo">미완 ${item.summary.total-item.summary.done}개</span>`:''}
@@ -1801,7 +1802,7 @@ function filterMemos(){
     card.innerHTML=`
       <div class="memo-list-date">
         ${d.date} (${DAYS[dt.getDay()]}요일)
-        ${d.agenda?`<span class="memo-list-agenda">· ${highlightText(d.agenda)}</span>`:''}
+        ${d.agenda?`<span class="memo-list-agenda">· ${highlightText(d.agenda.replace(/\n+/g,' / '))}</span>`:''}
       </div>
       ${d.memo?`<div class="memo-list-body">${highlightText(d.memo)}</div>`:''}
       ${relTasks.length?`<div class="memo-list-tasks">
@@ -1978,7 +1979,7 @@ function renderOverviewTab(dates,data){
     if(d.rate===null)return;
     const[y,m,dd]=d.date.split('-').map(Number);const dt=new Date(y,m-1,dd);
     const tr=document.createElement('tr');tr.className='task-row';tr.style.cursor='pointer';
-    tr.innerHTML=`<td>${d.date} (${DAYS[dt.getDay()]})</td><td style="font-size:12px;color:var(--text2);">${esc((map[d.date]&&map[d.date].agenda)||'—')}</td><td style="text-align:center;">${d.total}</td><td style="text-align:center;">${d.done}</td><td style="text-align:center;font-weight:600;color:${d.rate>=80?'var(--green)':d.rate>=50?'var(--accent)':'var(--red)'};">${d.rate}%</td>`;
+    tr.innerHTML=`<td>${d.date} (${DAYS[dt.getDay()]})</td><td style="font-size:12px;color:var(--text2);">${agendaDisp((map[d.date]&&map[d.date].agenda)||'—')}</td><td style="text-align:center;">${d.total}</td><td style="text-align:center;">${d.done}</td><td style="text-align:center;font-weight:600;color:${d.rate>=80?'var(--green)':d.rate>=50?'var(--accent)':'var(--red)'};">${d.rate}%</td>`;
     tr.onclick=async()=>{curDate=d.date;await loadDay(curDate);showView('today');};
     tbody.appendChild(tr);
   });
@@ -3510,7 +3511,7 @@ function renderAdminUserTasks(){
     const tasks=d.data?.tasks||[];
     const priIcon=['','🟢','🟡','🟠','🔴'];
     html+=`<div style="border-bottom:2px solid var(--border);padding:10px 18px;">
-      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일)${d.data?.agenda?' · '+esc(d.data.agenda):''}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일)${d.data?.agenda?' · '+agendaDisp(d.data.agenda):''}</div>
       ${tasks.length?tasks.map(t=>{
         const noteShort=t.note&&t.note.length>20?t.note.slice(0,20)+'…':t.note||'';
         const noteFull=t.note||'';

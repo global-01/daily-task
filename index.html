@@ -511,7 +511,7 @@
       </div>
       <div class="section-card">
         <div class="section-head"><h3>📌 주요 일정</h3></div>
-        <textarea class="agenda-input" id="agenda-inp" placeholder="오늘의 주요 일정을 입력하세요... (Shift+Enter로 줄바꿈)" onblur="saveField('agenda')" oninput="markUnsaved()" rows="2" style="resize:none;line-height:1.6;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"></textarea>
+        <textarea class="agenda-input" id="agenda-inp" placeholder="오늘의 주요 일정을 입력하세요... (Enter로 줄바꿈)" onblur="saveField('agenda')" oninput="markUnsaved()" rows="2" style="resize:none;line-height:1.6;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"></textarea>
       </div>
       <div class="section-card">
         <div class="section-head">
@@ -542,7 +542,7 @@
       </div>
       <div class="section-card">
         <div class="section-head"><h3>💬 진행 특이사항</h3></div>
-        <textarea class="memo-ta" id="memo-inp" placeholder="이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')" oninput="markUnsaved()"></textarea>
+        <textarea class="memo-ta" id="memo-inp" placeholder="미진행 사항 / 이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')" oninput="markUnsaved()"></textarea>
       </div>
     </div>
 
@@ -1230,6 +1230,9 @@ function showMainApp(){
   document.getElementById('setup-screen').style.display='none';
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-app').style.display='block';
+  // 관리자 탭 항상 먼저 숨김 — checkAdmin() 후 필요시 표시
+  const adminBtn=document.getElementById('admin-nav-btn');
+  if(adminBtn)adminBtn.style.display='none';
   // 계정이 바뀌었으면 캐시 초기화
   const uid=currentSession?.user?.id||'';
   if(_lastUserId && _lastUserId!==uid){

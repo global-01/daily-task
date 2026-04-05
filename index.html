@@ -3908,6 +3908,39 @@ function getOrderedGroupKeys(groupObj, preferred=[]){
   return [...ordered, ...rest];
 }
 
+function getCategoryMappedParts(category){
+  return [...new Set((allCategoriesData||[])
+    .filter(c=>c?.name===category)
+    .map(c=>c.part||'공통'))];
+}
+
+function getScopedPartsForUser(user){
+  if(isSuperAdmin()) return [];
+  if(adminAssignedPart) return [adminAssignedPart];
+  if(adminPartFilter) return [adminPartFilter];
+  return parsePartValues(user?.part);
+}
+
+function taskMatchesAdminScope(task, user){
+  if(isSuperAdmin()) return true;
+  const scopedParts=getScopedPartsForUser(user);
+  if(!scopedParts.length) return true;
+  const mappedParts=getCategoryMappedParts(task?.category||'');
+  if(!mappedParts.length) return true;
+  if(mappedParts.includes('공통')) return true;
+  return mappedParts.some(p=>scopedParts.includes(p));
+}
+
+function getTeamManagerTaskGroup(task, user){
+  if(adminAssignedPart) return adminAssignedPart;
+  if(adminPartFilter) return adminPartFilter;
+  const mappedParts=getCategoryMappedParts(task?.category||'').filter(p=>p!=='공통');
+  if(!mappedParts.length) return '공통';
+  const userParts=parsePartValues(user?.part);
+  const matched=mappedParts.find(p=>userParts.includes(p)) || mappedParts[0];
+  return matched || '공통';
+}
+
 function renderAdminTeamFilter(){
   const wrap=document.getElementById('admin-team-filter-wrap');
   if(!wrap)return;
@@ -3979,6 +4012,7 @@ function toggleAdminRates(){
 
 /* ── 대시보드 렌더 ── */
 async function renderAdminDashboard(from,to){
+  await loadAllCategories();
   // 역할 배지 표시
   const badge=document.getElementById('admin-role-badge');
   const desc=document.getElementById('admin-role-desc');
@@ -3993,7 +4027,6 @@ async function renderAdminDashboard(from,to){
       if(desc)desc.textContent=adminAssignedTeam?`${adminAssignedTeam} 팀 현황을 확인해요`:'담당 팀 현황을 확인해요';
     }
   }
-  // 팀/파트 필터 렌더 (슈퍼=팀필터, 팀관리자=파트필터)
   renderAdminTeamFilter();
 
   const filtered=getFilteredUsers();
@@ -4001,14 +4034,16 @@ async function renderAdminDashboard(from,to){
   const activeUsers=filtered.filter(u=>u.days.length>0).length;
   let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
   filtered.forEach(u=>u.days.forEach(d=>{
-    const tasks=d.data?.tasks||[];
+    const tasks=(d.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,u));
     totalTasks+=tasks.length;
     totalDone+=tasks.filter(t=>t.done).length;
     totalUndone+=tasks.filter(t=>!t.done).length;
     totalCarry+=tasks.filter(t=>t.carriedFrom).length;
   }));
   const avgRate=totalTasks?Math.round(totalDone/totalTasks*100):0;
-  const filterLabel=adminTeamFilter?` (${adminTeamFilter})`:'';
+  const filterLabel=isSuperAdmin()
+    ? (adminTeamFilter?` (${adminTeamFilter})`:'')
+    : ((adminAssignedPart||adminPartFilter)?` (${adminAssignedPart||adminPartFilter})`:'' );
 
   document.getElementById('admin-summary-cards').innerHTML=`
     <div class="sum-card"><div class="sum-lbl">사용자${filterLabel}</div><div class="sum-val">${totalUsers}명</div><div class="sum-sub">활성 ${activeUsers}명</div></div>
@@ -4017,19 +4052,21 @@ async function renderAdminDashboard(from,to){
     <div class="sum-card"><div class="sum-lbl">이월 횟수</div><div class="sum-val" style="color:var(--blue);">${totalCarry}</div><div class="sum-sub">기간 내 합계</div></div>
   `;
 
-  // 사용자별 달성률
   const rateEl=document.getElementById('admin-user-rates');
   if(!filtered.length){
     rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';
   } else {
     let rateHtml='';
     if(!isSuperAdmin()){
-      // 팀 관리자: 파트별 그룹핑 (복수 파트/기타 파트도 모두 표시)
       const partGroups={};
       filtered.forEach(u=>{
-        const p=getPartDisplay(u.part)||'(파트 미지정)';
-        if(!partGroups[p])partGroups[p]=[];
-        partGroups[p].push(u);
+        const keys=(adminAssignedPart||adminPartFilter)
+          ? [adminAssignedPart||adminPartFilter]
+          : (parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)']);
+        keys.forEach(p=>{
+          if(!partGroups[p])partGroups[p]=[];
+          if(!partGroups[p].some(x=>x.user_id===u.user_id)) partGroups[p].push(u);
+        });
       });
       const orderedPartKeys=getOrderedGroupKeys(partGroups,[...PARTS,'(파트 미지정)']);
       orderedPartKeys.forEach(part=>{
@@ -4037,7 +4074,7 @@ async function renderAdminDashboard(from,to){
         if(!users||!users.length)return;
         rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
         users.forEach(u=>{
-          const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+          const tasks=u.days.flatMap(d=>(d.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,{...u, part: part==='(파트 미지정)' ? '' : (adminAssignedPart||adminPartFilter||part)})));
           const total=tasks.length,done=tasks.filter(t=>t.done).length;
           const rate=total?Math.round(done/total*100):0;
           const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
@@ -4053,7 +4090,6 @@ async function renderAdminDashboard(from,to){
         });
       });
     } else {
-      // 슈퍼 관리자: 팀별 그룹핑
       const superTeamGroups={};
       filtered.forEach(u=>{
         const t=u.team||'(팀 미지정)';
@@ -4085,35 +4121,37 @@ async function renderAdminDashboard(from,to){
     rateEl.innerHTML=rateHtml||'<div style="color:var(--text3);font-size:13px;">표시할 달성률 데이터가 없어요</div>';
   }
 
-  // 미완료/이월 현황: 관리자가 확인하는 현재 시점 기준으로 미래 일정 제외
   const undoneEl=document.getElementById('admin-undone-list');
   const today=todayStr();
   const undoneItems=[];
   filtered.forEach(u=>u.days.forEach(d=>{
-    if(d.date>today)return; // 미래 일정 제외
-    (d.data?.tasks||[]).filter(t=>!t.done).forEach(t=>{
-      undoneItems.push({
-        name:u.name,
-        email:u.email,
-        team:u.team,
-        part:u.part,
-        date:d.date,
-        task:t.name,
-        category:t.category||'',
-        carry:t.carriedFrom||'',
-        overdue:d.date<today
+    if(d.date>today)return;
+    (d.data?.tasks||[])
+      .filter(t=>!t.done)
+      .filter(t=>taskMatchesAdminScope(t,u))
+      .forEach(t=>{
+        undoneItems.push({
+          name:u.name,
+          email:u.email,
+          team:u.team,
+          part:u.part,
+          date:d.date,
+          task:t.name,
+          category:t.category||'',
+          carry:t.carriedFrom||'',
+          overdue:d.date<today
+        });
       });
-    });
   }));
   if(!undoneItems.length){
     undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 현재 시점 기준 미완료 업무가 없어요!</div>';
   } else {
     const groupKeyFn = isSuperAdmin()
       ? (item => item.team||'(팀 미지정)')
-      : (item => getPartDisplay(item.part)||'(파트 미지정)');
+      : (item => getTeamManagerTaskGroup(item, item));
     const preferredKeys = isSuperAdmin()
       ? [...teamsList,'(팀 미지정)']
-      : [...PARTS,'(파트 미지정)'];
+      : ['공통', ...PARTS, '(파트 미지정)'];
 
     const undoneGroups={};
     undoneItems.forEach(item=>{
@@ -4140,7 +4178,6 @@ async function renderAdminDashboard(from,to){
     undoneEl.innerHTML=undoneHtml;
   }
 
-  // 사용자 선택 드롭다운
   const sel=document.getElementById('admin-user-select');
   let selHtml='<option value="">사용자 선택</option>';
   const selectGroups={};
@@ -4158,20 +4195,14 @@ async function renderAdminDashboard(from,to){
     const users=selectGroups[groupName];
     if(!users||!users.length)return;
     selHtml+=`<optgroup label="${esc(groupName)}">`;
-    users
-      .sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'))
-      .forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)} (${esc(u.email)})</option>`; });
+    users.sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko')).forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)} (${esc(u.email)})</option>`; });
     selHtml+=`</optgroup>`;
   });
   sel.innerHTML=selHtml;
 
-  // 구분 필터 드롭다운 - 파트별로 묶어서 표시
-  await loadAllCategories();
   const catSel=document.getElementById('admin-cat-filter');
   if(catSel){
     const prevCat=catSel.value;
-
-    // 현재 화면에서 보여줄 파트 범위 결정
     const scopedParts=['공통'];
     if(!isSuperAdmin()){
       if(adminAssignedPart){
@@ -4187,57 +4218,23 @@ async function renderAdminDashboard(from,to){
 
     const catsByPart={};
     scopedParts.forEach(part=>catsByPart[part]=new Set());
-
-    // categories 테이블 기준 파트별 구분 수집
     (allCategoriesData||[]).forEach(c=>{
       const part=(c?.part||'공통');
-      if(c?.name && scopedParts.includes(part)){
-        catsByPart[part].add(c.name);
-      }
+      if(c?.name && scopedParts.includes(part)) catsByPart[part].add(c.name);
     });
-
-    // 실제 작성된 업무 구분도 같이 반영
     filtered.forEach(u=>{
       const userParts=parsePartValues(u.part).filter(p=>scopedParts.includes(p));
       (u.days||[]).forEach(d=>(d.data?.tasks||[]).forEach(t=>{
         if(!t.category) return;
-
-        // 1) categories 테이블과 이름 매칭되는 파트에 우선 배치
-        let matchedParts=(allCategoriesData||[])
-          .filter(c=>c?.name===t.category && scopedParts.includes(c.part||'공통'))
-          .map(c=>c.part||'공통');
-
-        if(matchedParts.length){
-          matchedParts.forEach(part=>{
-            catsByPart[part] ??= new Set();
-            catsByPart[part].add(t.category);
-          });
-          return;
-        }
-
-        // 2) 공통 목록에 이미 존재하면 공통으로
-        if((catsByPart['공통']||new Set()).has(t.category)){
-          catsByPart['공통'].add(t.category);
-          return;
-        }
-
-        // 3) 특정 파트만 보는 화면이면 그 파트에 배치, 아니면 사용자 파트들에 배치
+        let matchedParts=(allCategoriesData||[]).filter(c=>c?.name===t.category && scopedParts.includes(c.part||'공통')).map(c=>c.part||'공통');
+        if(matchedParts.length){ matchedParts.forEach(part=>{ catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }); return; }
+        if((catsByPart['공통']||new Set()).has(t.category)){ catsByPart['공통'].add(t.category); return; }
         const specificParts=scopedParts.filter(p=>p!=='공통');
-        if(specificParts.length===1){
-          const part=specificParts[0];
-          catsByPart[part] ??= new Set();
-          catsByPart[part].add(t.category);
-        } else if(userParts.length){
-          userParts.forEach(part=>{
-            catsByPart[part] ??= new Set();
-            catsByPart[part].add(t.category);
-          });
-        } else {
-          catsByPart['공통'].add(t.category);
-        }
+        if(specificParts.length===1){ const part=specificParts[0]; catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }
+        else if(userParts.length){ userParts.forEach(part=>{ catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }); }
+        else { catsByPart['공통'].add(t.category); }
       }));
     });
-
     const orderedParts=['공통', ...PARTS.filter(p=>scopedParts.includes(p)), ...scopedParts.filter(p=>p!=='공통' && !PARTS.includes(p))];
     let options='<option value="">전체 구분</option>';
     orderedParts.forEach(part=>{
@@ -4245,15 +4242,13 @@ async function renderAdminDashboard(from,to){
       if(!cats.length) return;
       options += `<optgroup label="${esc(part)}">` + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('') + '</optgroup>';
     });
-
     catSel.innerHTML=options;
     const availableCats=new Set();
     orderedParts.forEach(part=>[...(catsByPart[part]||new Set())].forEach(c=>availableCats.add(c)));
     if(prevCat && availableCats.has(prevCat)) catSel.value=prevCat;
   }
 
-
-  // 전체 사용자 목록 + 팀/이름 편집
+// 전체 사용자 목록 + 팀/이름 편집
   const userListEl=document.getElementById('admin-user-list');
   // 팀 관리자는 팀원 목록만 보여줌 (이름/팀 수정 불가)
   if(!isSuperAdmin()){

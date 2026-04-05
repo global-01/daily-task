@@ -359,7 +359,7 @@
   /* ── 사이드바 레이아웃 ── */
   .sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
   .sb-logo{padding:20px 16px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
-  .sb-logo-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3E67D6 0%, #6D4DFF 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(62,103,214,.18), 0 3px 8px rgba(109,77,255,.12);flex-shrink:0;}
+  .sb-logo-icon{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#3E67D6 0%, #6D4DFF 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 7px 16px rgba(62,103,214,.16), 0 2px 6px rgba(109,77,255,.10);flex-shrink:0;}
   .sb-logo-icon svg{width:20px;height:20px;display:block;}
   .sb-logo-text{font-family:'Noto Serif KR',serif;font-size:16px;font-weight:700;color:#fff;line-height:1.1;}
   .sb-logo-sub{font-size:10px;color:var(--sidebar-text2);letter-spacing:.3px;margin-top:3px;}
@@ -378,9 +378,9 @@
   .sb-user{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
   .sb-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;}
   .sb-email-txt{font-size:11px;color:var(--sidebar-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-  .sb-btns{display:flex;flex-direction:column;gap:7px;}
-  .sb-btn{width:100%;min-height:34px;padding:0 11px;border-radius:10px;border:1px solid var(--sidebar-border);background:transparent;color:var(--sidebar-text2);font-size:12px;font-weight:500;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;display:flex;align-items:center;justify-content:flex-start;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .sb-btn svg{width:14px;height:14px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .sb-btns{display:flex;flex-direction:column;gap:6px;}
+  .sb-btn{width:100%;min-height:28px;padding:0 10px;border-radius:9px;border:1px solid var(--sidebar-border);background:transparent;color:var(--sidebar-text2);font-size:11px;font-weight:500;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;display:flex;align-items:center;justify-content:flex-start;gap:7px;white-space:nowrap;}
+  .sb-btn svg{width:13px;height:13px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .sb-btn:hover{background:rgba(255,255,255,.05);color:#fff;}
   .sb-btn.sv{background:rgba(62,103,214,.18);border-color:rgba(62,103,214,.28);color:#DCE7FF;}
   .sb-btn.sv:hover{background:rgba(62,103,214,.24);border-color:rgba(62,103,214,.34);}
@@ -427,7 +427,7 @@
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--sidebar-bg2);flex-direction:column;align-items:center;justify-content:center;padding:24px;z-index:999;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow2);width:100%;max-width:400px;padding:44px 40px;">
     <div style="text-align:center;margin-bottom:28px;">
-      <div style="width:68px;height:68px;border-radius:18px;background:linear-gradient(135deg,#3E67D6 0%, #6D4DFF 100%);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 10px 24px rgba(62,103,214,.22), 0 4px 10px rgba(109,77,255,.16);">
+      <div style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#3E67D6 0%, #6D4DFF 100%);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 8px 18px rgba(62,103,214,.18), 0 3px 8px rgba(109,77,255,.12);">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true" style="width:28px;height:28px;display:block;">
           <path d="M24 18h14l7 7v21H24z" fill="#FFFFFF" fill-opacity="0.97"/>
           <path d="M38 18v7h7" fill="#D9CCFF"/>
@@ -4330,3 +4330,4 @@ window.addEventListener('popstate', async (e)=>{
 </script>
 </body>
 </html>
+

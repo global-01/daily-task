@@ -1707,10 +1707,26 @@ async function init(){
     const adminBtn=document.getElementById('admin-nav-btn');
     if(adminBtn)adminBtn.style.display='inline-flex';
   }
-  // 마지막 탭 복원
-  try{sessionStorage.setItem('lastView','today');}catch{}
+
+  // 새로고침 시 현재 화면 유지
+  const validViews=['today','calendar','history','stats','recurring','admin'];
+  const hashView=(location.hash||'').replace('#','');
+  let restoreView=validViews.includes(hashView) ? hashView : '';
+  if(!restoreView){
+    try{
+      const savedView=sessionStorage.getItem('lastView')||'';
+      if(validViews.includes(savedView)) restoreView=savedView;
+    }catch{}
+  }
+  if(!restoreView) restoreView='today';
+  if(restoreView==='admin' && !isAdmin) restoreView='today';
+
   await loadDay(curDate);
-  showView('today', {push:false});
+  showView(restoreView, {push:false});
+  const targetHash='#'+restoreView;
+  if(location.hash!==targetHash){
+    history.replaceState({view:restoreView}, '', location.pathname+location.search+targetHash);
+  }
 
   await loadCategories();
   checkAndCarryOver();
@@ -3824,6 +3840,15 @@ function getPartDisplay(partValue){
   return parts.join(', ');
 }
 
+function getOrderedGroupKeys(groupObj, preferred=[]){
+  const keys=Object.keys(groupObj||{});
+  const preferredSet=new Set(preferred);
+  const ordered=[];
+  preferred.forEach(k=>{ if(keys.includes(k)) ordered.push(k); });
+  const rest=keys.filter(k=>!preferredSet.has(k)).sort((a,b)=>a.localeCompare(b,'ko'));
+  return [...ordered, ...rest];
+}
+
 function renderAdminTeamFilter(){
   const wrap=document.getElementById('admin-team-filter-wrap');
   if(!wrap)return;
@@ -3933,111 +3958,125 @@ function renderAdminDashboard(from,to){
     <div class="sum-card"><div class="sum-lbl">이월 횟수</div><div class="sum-val" style="color:var(--blue);">${totalCarry}</div><div class="sum-sub">기간 내 합계</div></div>
   `;
 
-  // 팀별 그룹핑해서 달성률 표시
+  // 사용자별 달성률
   const rateEl=document.getElementById('admin-user-rates');
-  // 접힘 상태 유지 (재렌더 시 강제로 펼치지 않음)
-  if(!filtered.length){rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';return;}
-
-  // 팀별로 묶기
-  const teamGroups={};
-  filtered.forEach(u=>{
-    const t=u.team||'(팀 미지정)';
-    if(!teamGroups[t])teamGroups[t]=[];
-    teamGroups[t].push(u);
-  });
-
-  let rateHtml='';
-  if(!isSuperAdmin()){
-    // 팀 관리자: 파트별로 그룹핑
-    const partGroups={};
-    filtered.forEach(u=>{
-      const p=getPartDisplay(u.part)||'(파트 미지정)';
-      if(!partGroups[p])partGroups[p]=[];
-      partGroups[p].push(u);
-    });
-    // 파트 순서: 글로벌, 일본, 신사업, 미지정
-    const partOrder=[...PARTS,'(파트 미지정)'];
-    partOrder.forEach(part=>{
-      const users=partGroups[part];
-      if(!users||!users.length)return;
-      rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
-      users.forEach(u=>{
-        const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
-        const total=tasks.length,done=tasks.filter(t=>t.done).length;
-        const rate=total?Math.round(done/total*100):0;
-        const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
-        rateHtml+=`<div class="admin-user-row">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
-            <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
-          </div>
-          <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
-          <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
-          <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
-        </div>`;
-      });
-    });
+  if(!filtered.length){
+    rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';
   } else {
-    // 슈퍼 관리자: 팀별 그룹핑
-    const superTeamGroups={};
-    filtered.forEach(u=>{
-      const t=u.team||'(팀 미지정)';
-      if(!superTeamGroups[t])superTeamGroups[t]=[];
-      superTeamGroups[t].push(u);
-    });
-    const superTeamOrder=[...teamsList,'(팀 미지정)'];
-    superTeamOrder.forEach(part=>{
-      const users=superTeamGroups[part];
-      if(!users||!users.length)return;
-      rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
-      users.forEach(u=>{
-        const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
-        const total=tasks.length,done=tasks.filter(t=>t.done).length;
-        const rate=total?Math.round(done/total*100):0;
-        const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
-        rateHtml+=`<div class="admin-user-row">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
-            <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
-          </div>
-          <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
-          <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
-          <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
-        </div>`;
+    let rateHtml='';
+    if(!isSuperAdmin()){
+      // 팀 관리자: 파트별 그룹핑 (복수 파트/기타 파트도 모두 표시)
+      const partGroups={};
+      filtered.forEach(u=>{
+        const p=getPartDisplay(u.part)||'(파트 미지정)';
+        if(!partGroups[p])partGroups[p]=[];
+        partGroups[p].push(u);
       });
-    });
+      const orderedPartKeys=getOrderedGroupKeys(partGroups,[...PARTS,'(파트 미지정)']);
+      orderedPartKeys.forEach(part=>{
+        const users=partGroups[part];
+        if(!users||!users.length)return;
+        rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
+        users.forEach(u=>{
+          const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+          const total=tasks.length,done=tasks.filter(t=>t.done).length;
+          const rate=total?Math.round(done/total*100):0;
+          const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
+          rateHtml+=`<div class="admin-user-row">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
+              <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
+            </div>
+            <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
+            <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
+            <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
+          </div>`;
+        });
+      });
+    } else {
+      // 슈퍼 관리자: 팀별 그룹핑
+      const superTeamGroups={};
+      filtered.forEach(u=>{
+        const t=u.team||'(팀 미지정)';
+        if(!superTeamGroups[t])superTeamGroups[t]=[];
+        superTeamGroups[t].push(u);
+      });
+      const orderedTeamKeys=getOrderedGroupKeys(superTeamGroups,[...teamsList,'(팀 미지정)']);
+      orderedTeamKeys.forEach(team=>{
+        const users=superTeamGroups[team];
+        if(!users||!users.length)return;
+        rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(team)}</div>`;
+        users.forEach(u=>{
+          const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
+          const total=tasks.length,done=tasks.filter(t=>t.done).length;
+          const rate=total?Math.round(done/total*100):0;
+          const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
+          rateHtml+=`<div class="admin-user-row">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
+              <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
+            </div>
+            <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
+            <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
+            <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
+          </div>`;
+        });
+      });
+    }
+    rateEl.innerHTML=rateHtml||'<div style="color:var(--text3);font-size:13px;">표시할 달성률 데이터가 없어요</div>';
   }
-  rateEl.innerHTML=rateHtml;
 
-  // 미완료/이월 현황
+  // 미완료/이월 현황: 관리자가 확인하는 현재 시점 기준으로 미래 일정 제외
   const undoneEl=document.getElementById('admin-undone-list');
+  const today=todayStr();
   const undoneItems=[];
   filtered.forEach(u=>u.days.forEach(d=>{
+    if(d.date>today)return; // 미래 일정 제외
     (d.data?.tasks||[]).filter(t=>!t.done).forEach(t=>{
-      undoneItems.push({name:u.name,email:u.email,team:u.team,part:u.part,date:d.date,task:t.name,carry:t.carriedFrom||''});
+      undoneItems.push({
+        name:u.name,
+        email:u.email,
+        team:u.team,
+        part:u.part,
+        date:d.date,
+        task:t.name,
+        category:t.category||'',
+        carry:t.carriedFrom||'',
+        overdue:d.date<today
+      });
     });
   }));
   if(!undoneItems.length){
-    undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 미완료 업무가 없어요!</div>';
+    undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 현재 시점 기준 미완료 업무가 없어요!</div>';
   } else {
-    // 파트별 그룹핑
-    const undoneByPart={};
+    const groupKeyFn = isSuperAdmin()
+      ? (item => item.team||'(팀 미지정)')
+      : (item => getPartDisplay(item.part)||'(파트 미지정)');
+    const preferredKeys = isSuperAdmin()
+      ? [...teamsList,'(팀 미지정)']
+      : [...PARTS,'(파트 미지정)'];
+
+    const undoneGroups={};
     undoneItems.forEach(item=>{
-      const p=getPartDisplay(item.part)||'(파트 미지정)';
-      if(!undoneByPart[p])undoneByPart[p]=[];
-      undoneByPart[p].push(item);
+      const key=groupKeyFn(item);
+      if(!undoneGroups[key])undoneGroups[key]=[];
+      undoneGroups[key].push(item);
     });
-    const partOrder=[...PARTS,'(파트 미지정)'];
-    let undoneHtml=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">총 ${undoneItems.length}개</div>`;
-    partOrder.forEach(part=>{
-      const items=undoneByPart[part];
+
+    let undoneHtml=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">총 ${undoneItems.length}개 · 미래 일정 제외</div>`;
+    getOrderedGroupKeys(undoneGroups, preferredKeys).forEach(groupName=>{
+      const items=undoneGroups[groupName];
       if(!items||!items.length)return;
-      undoneHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:8px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
-      undoneHtml+=items.map(item=>`
-        <div class="admin-undone-item">
-          <div class="admin-undone-name">${item.carry?'🔄 ':''}${esc(item.task)}</div>
-          <div class="admin-undone-user">${esc(item.name)} · ${item.date}</div>
-        </div>`).join('');
+      undoneHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:8px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(groupName)}</div>`;
+      undoneHtml+=items
+        .sort((a,b)=>a.date===b.date ? a.name.localeCompare(b.name,'ko') : a.date.localeCompare(b.date))
+        .map(item=>`
+          <div class="admin-undone-item">
+            <div class="admin-undone-name">
+              ${item.carry?'🔄 ':''}${item.overdue?'⏰ ':''}${item.category?`[${esc(item.category)}] `:''}${esc(item.task)}
+            </div>
+            <div class="admin-undone-user">${esc(item.name)} · ${item.date}${item.overdue?' · 미완료 유지':''}</div>
+          </div>`).join('');
     });
     undoneEl.innerHTML=undoneHtml;
   }

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>일일 업무 관리</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%233E67D6'/%3E%3Cstop offset='100%25' stop-color='%236D4DFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='10' y='10' width='44' height='44' rx='12' fill='url(%23g)'/%3E%3Cpath d='M24 18h11l7 7v21H24z' fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M35 18v7h7' fill='none' stroke='%23D9CCFF' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M28 31h10' stroke='%23fff' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M28 39h10' stroke='%23fff' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M28 47h7' stroke='%23D9CCFF' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E"><text y='.9em' font-size='90'>📑</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📑</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -358,9 +358,10 @@
 
   /* ── 사이드바 레이아웃 ── */
   .sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
-  .sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;flex-shrink:0;}
-  .sb-logo-text{font-family:'Noto Serif KR',serif;font-size:18px;font-weight:700;color:#fff;line-height:1.1;}
-  .sb-logo-sub{font-size:11px;color:var(--sidebar-text2);letter-spacing:.3px;margin-top:5px;}
+  .sb-logo{padding:20px 16px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .sb-logo-icon{width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 10px rgba(59,95,160,.4);}
+  .sb-logo-text{font-family:'Noto Serif KR',serif;font-size:17px;font-weight:700;color:#fff;}
+  .sb-logo-sub{font-size:10px;color:var(--sidebar-text2);letter-spacing:.3px;}
   .sb-nav{flex:1;padding:10px 8px;overflow-y:auto;}
   .sb-sec{font-size:10px;font-weight:600;color:var(--sidebar-text2);text-transform:uppercase;letter-spacing:.8px;padding:8px 10px 4px;}
   .sb-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;color:var(--sidebar-text);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;background:transparent;width:100%;text-align:left;margin-bottom:2px;font-family:'Noto Sans KR',sans-serif;}
@@ -368,6 +369,22 @@
   .sb-item.active{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(59,95,160,.35);}
   .sb-ic{font-size:15px;width:20px;text-align:center;flex-shrink:0;opacity:.75;}
   .sb-item.active .sb-ic{opacity:1;}
+
+  .sb-ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block;}
+  .sb-btn{display:flex;align-items:center;justify-content:flex-start;gap:8px;}
+  .sb-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:block;}
+
+  /* category select */
+  .cat-select{
+    width:120px;max-width:120px;min-width:120px;height:40px;border:1px solid var(--accent);
+    border-radius:8px;padding:0 34px 0 12px;font-family:'Noto Sans KR',sans-serif;font-size:13px;
+    color:var(--text);background-color:#fff;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    line-height:40px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 5 4-5' fill='%231C2333'/></svg>");
+    background-repeat:no-repeat;background-position:right 12px center;background-size:12px;vertical-align:middle;
+  }
+  .cat-select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(59,95,160,.10);}
+  .cat-select::-ms-expand{display:none;}
+
   .sb-item.adm{color:#EF9FA3;background:rgba(192,68,74,.1);margin-top:6px;}
   .sb-item.adm:hover{background:rgba(192,68,74,.2);}
   .sb-item.adm.active{background:#C0444A;box-shadow:0 2px 10px rgba(192,68,74,.35);}
@@ -375,13 +392,12 @@
   .sb-user{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
   .sb-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;}
   .sb-email-txt{font-size:11px;color:var(--sidebar-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-  .sb-btns{display:flex;flex-direction:column;gap:6px;}
-  .sb-btn{width:100%;min-height:30px;padding:0 10px;border-radius:9px;border:1px solid var(--sidebar-border);background:transparent;color:var(--sidebar-text2);font-size:11px;font-weight:500;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;display:flex;align-items:center;justify-content:flex-start;gap:7px;white-space:nowrap;}
-  .sb-btn:hover{background:rgba(255,255,255,.05);color:#fff;}
-  .sb-btn svg{width:13px;height:13px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-  .sb-btn.sv{background:rgba(62,103,214,.16);border-color:rgba(62,103,214,.26);color:#DCE7FF;}
-  .sb-btn.sv:hover{background:rgba(62,103,214,.22);border-color:rgba(62,103,214,.32);}
-  .sb-btn.sv.unsaved{background:var(--red);border-color:var(--red);color:white;}
+  .sb-btns{display:flex;gap:4px;}
+  .sb-btn{flex:1;padding:6px 0;border-radius:5px;border:1px solid var(--sidebar-border);background:transparent;color:var(--sidebar-text2);font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+  .sb-btn:hover{background:rgba(255,255,255,.06);color:var(--sidebar-text);}
+  .sb-btn.sv{background:var(--accent);border-color:var(--accent);color:white;}
+  .sb-btn.sv:hover{background:var(--accent2);}
+  .sb-btn.sv.unsaved{background:var(--red);border-color:var(--red);}
   /* ── 메인 영역 ── */
   .main-wrap{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-width:0;}
   .top-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:50px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(28,35,51,.05);}
@@ -400,6 +416,65 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute;visibility:hidden" aria-hidden="true">
+  <defs>
+    <symbol id="ic-today" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+      <path d="M8 3.5v3"></path>
+      <path d="M16 3.5v3"></path>
+      <path d="M3.5 9.5h17"></path>
+      <path d="M8 14l2.2 2.2L16 11"></path>
+    </symbol>
+    <symbol id="ic-calendar" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+      <path d="M8 3.5v3"></path>
+      <path d="M16 3.5v3"></path>
+      <path d="M3.5 9.5h17"></path>
+      <path d="M8 13h3"></path>
+      <path d="M13 13h3"></path>
+      <path d="M8 17h3"></path>
+    </symbol>
+    <symbol id="ic-history" viewBox="0 0 24 24">
+      <path d="M4 12a8 8 0 1 0 2.3-5.6"></path>
+      <path d="M4 4v5h5"></path>
+      <path d="M12 8v5l3 2"></path>
+    </symbol>
+    <symbol id="ic-stats" viewBox="0 0 24 24">
+      <path d="M4 19.5h16"></path>
+      <rect x="6" y="11" width="3" height="6.5" rx="1"></rect>
+      <rect x="11" y="8" width="3" height="9.5" rx="1"></rect>
+      <rect x="16" y="5" width="3" height="12.5" rx="1"></rect>
+    </symbol>
+    <symbol id="ic-repeat" viewBox="0 0 24 24">
+      <path d="M17 2.5l3 3-3 3"></path>
+      <path d="M20 5.5H9a4 4 0 0 0-4 4v1"></path>
+      <path d="M7 21.5l-3-3 3-3"></path>
+      <path d="M4 18.5h11a4 4 0 0 0 4-4v-1"></path>
+    </symbol>
+    <symbol id="ic-admin" viewBox="0 0 24 24">
+      <path d="M12 3l2.1 4.2 4.6.7-3.3 3.2.8 4.5-4.2-2.2-4.2 2.2.8-4.5L5.3 7.9l4.6-.7L12 3z"></path>
+      <path d="M8 19.5h8"></path>
+    </symbol>
+    <symbol id="ic-save" viewBox="0 0 24 24">
+      <path d="M6 4.5h9l3 3v12a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z"></path>
+      <path d="M8 4.5v5h7v-3"></path>
+      <path d="M8 15.5h8"></path>
+    </symbol>
+    <symbol id="ic-download" viewBox="0 0 24 24">
+      <path d="M7 4.5h8l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z"></path>
+      <path d="M15 4.5v4h4"></path>
+      <path d="M12 11v6"></path>
+      <path d="M9.5 14.5 12 17l2.5-2.5"></path>
+    </symbol>
+    <symbol id="ic-logout" viewBox="0 0 24 24">
+      <path d="M10 6H6.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2H10"></path>
+      <path d="M14 8l4 4-4 4"></path>
+      <path d="M9 12h9"></path>
+    </symbol>
+  </defs>
+</svg>
+
 
 <!-- SETUP SCREEN -->
 <div id="setup-screen" class="setup-screen" style="display:none;">
@@ -460,16 +535,17 @@
 <div id="main-app" style="display:none;width:100%;">
   <aside class="sidebar">
     <div class="sb-logo">
+      <div class="sb-logo-icon">📋</div>
       <div><div class="sb-logo-text">Daily</div><div class="sb-logo-sub">업무관리</div></div>
     </div>
     <nav class="sb-nav">
       <div class="sb-sec">메뉴</div>
-      <button class="sb-item active" onclick="showView('today')"><span class="sb-ic">📅</span>오늘</button>
-      <button class="sb-item" onclick="showView('calendar')"><span class="sb-ic">🗓</span>캘린더</button>
-      <button class="sb-item" onclick="showView('history')"><span class="sb-ic">📂</span>기록</button>
-      <button class="sb-item" onclick="showView('stats')"><span class="sb-ic">📊</span>통계</button>
-      <button class="sb-item" onclick="showView('recurring')"><span class="sb-ic">🔁</span>반복업무</button>
-      <button class="sb-item adm" id="admin-nav-btn" onclick="showView('admin')" style="display:none;"><span class="sb-ic">👑</span>관리자</button>
+      <button class="sb-item active" onclick="showView('today')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-today"></use></svg></span>오늘</button>
+      <button class="sb-item" onclick="showView('calendar')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-calendar"></use></svg></span>캘린더</button>
+      <button class="sb-item" onclick="showView('history')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-history"></use></svg></span>기록</button>
+      <button class="sb-item" onclick="showView('stats')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-stats"></use></svg></span>통계</button>
+      <button class="sb-item" onclick="showView('recurring')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-repeat"></use></svg></span>반복업무</button>
+      <button class="sb-item adm" id="admin-nav-btn" onclick="showView('admin')" style="display:none;"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-admin"></use></svg></span>관리자</button>
     </nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -477,9 +553,9 @@
         <div class="sb-email-txt" id="user-email"></div>
       </div>
       <div class="sb-btns">
-        <button class="sb-btn sv" id="manual-save-btn" onclick="manualSave()"><svg viewBox="0 0 24 24"><path d="M6 4.5h9l3 3v12a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z"></path><path d="M8 4.5v5h7v-3"></path><path d="M8 15.5h8"></path></svg>저장</button>
-        <button class="sb-btn" onclick="openDownloadModal()"><svg viewBox="0 0 24 24"><path d="M7 4.5h8l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z"></path><path d="M15 4.5v4h4"></path><path d="M12 11v6"></path><path d="M9.5 14.5 12 17l2.5-2.5"></path></svg>주간보고 다운로드</button>
-        <button class="sb-btn" onclick="signOut()"><svg viewBox="0 0 24 24"><path d="M10 6H6.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2H10"></path><path d="M14 8l4 4-4 4"></path><path d="M9 12h9"></path></svg>로그아웃</button>
+        <button class="sb-btn sv" id="manual-save-btn" onclick="manualSave()"><svg viewBox="0 0 24 24"><use href="#ic-save"></use></svg>저장</button>
+        <button class="sb-btn" onclick="openDownloadModal()"><svg viewBox="0 0 24 24"><use href="#ic-download"></use></svg>주간보고</button>
+        <button class="sb-btn" onclick="signOut()"><svg viewBox="0 0 24 24"><use href="#ic-logout"></use></svg>로그아웃</button>
       </div>
     </div>
   </aside>
@@ -505,8 +581,8 @@
       </div>
       <div class="stats-row">
         <div class="stat-card"><div class="lbl">오늘 달성률</div><div class="val" id="s-rate">0%</div><div class="prog-wrap"><div class="prog-bar" id="s-bar" style="width:0%"></div></div><div class="sub" id="s-sub">0 / 0 완료</div></div>
-        <div class="stat-card"><div class="lbl">이번 주 평균</div><div class="val" id="s-week">—</div><div class="sub">금~목 주간 평균</div></div>
-        <div class="stat-card"><div class="lbl">이번 달 평균</div><div class="val" id="s-month">—</div><div class="sub">당월 누적 평균</div></div>
+        <div class="stat-card"><div class="lbl">이번 주 평균</div><div class="val" id="s-week">—</div><div class="sub">주간 달성률</div></div>
+        <div class="stat-card"><div class="lbl">이번 달 평균</div><div class="val" id="s-month">—</div><div class="sub">월간 달성률</div></div>
       </div>
       <div class="section-card">
         <div class="section-head"><h3>📌 주요 일정</h3></div>
@@ -525,9 +601,10 @@
           <tbody id="task-tbody"></tbody>
           <tfoot><tr class="add-row"><td colspan="6">
             <div class="add-form">
-              <div style="position:relative;max-width:110px;">
-                <input class="add-input add-cat" id="nc" placeholder="구분" list="cat-datalist" autocomplete="off">
-                <datalist id="cat-datalist"></datalist>
+              <div style="position:relative;max-width:120px;">
+                <select class="cat-select" id="nc">
+                  <option value="">구분</option>
+                </select>
               </div>
               <input class="add-input" id="nt" placeholder="업무 내용 입력 후 Enter 또는 추가">
               <select class="pri-select" id="np">
@@ -1106,11 +1183,9 @@ async function signInWithEmail(){
     currentSession={...data,user};
     localStorage.setItem('sb_session',JSON.stringify(currentSession));
     showMainApp();
-    try{sessionStorage.setItem('lastView','today');}catch{}
-    history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');
     isAdmin=await checkAdmin();
     if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-    await loadDay(curDate);showView('today',{push:false});await loadCategories();checkAndCarryOver();recurringCache=null;injectRecurringTasks();
+    await loadDay(curDate);await loadCategories();checkAndCarryOver();recurringCache=null;injectRecurringTasks();
   }catch(e){errEl.textContent='오류가 발생했어요: '+e.message;errEl.style.display='block';}
 }
 
@@ -1136,9 +1211,9 @@ async function signUpWithEmail(){
       const userRes=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+data.access_token}});
       const user=await userRes.json();
       currentSession={...data,user};localStorage.setItem('sb_session',JSON.stringify(currentSession));
-      showMainApp();try{sessionStorage.setItem('lastView','today');}catch{} history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');isAdmin=await checkAdmin();
+      showMainApp();isAdmin=await checkAdmin();
       if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-      await loadDay(curDate);showView('today',{push:false});await loadCategories();checkAndCarryOver();recurringCache=null;injectRecurringTasks();
+      await loadDay(curDate);await loadCategories();checkAndCarryOver();recurringCache=null;injectRecurringTasks();
     } else {
       errEl.style.color='var(--green)';
       errEl.textContent='✅ 가입 완료! 이메일 확인 후 로그인해 주세요.';errEl.style.display='block';
@@ -1504,9 +1579,20 @@ async function init(){
     if(adminBtn)adminBtn.style.display='inline-flex';
   }
   // 마지막 탭 복원
-  try{sessionStorage.setItem('lastView','today');}catch{}
-  await loadDay(curDate);
-  showView('today', {push:false});
+  const lastView=sessionStorage.getItem('lastView')||'today';
+  const validViews=['today','calendar','history','stats','recurring','admin'];
+  const restoreView=validViews.includes(lastView)?lastView:'today';
+
+  // 관리자 탭은 권한 확인 후 복원
+  if(restoreView==='admin'&&!isAdmin){
+    await loadDay(curDate);
+  } else if(restoreView==='today'||restoreView==='admin'){
+    await loadDay(curDate);
+    if(restoreView!=='today')showView(restoreView);
+  } else {
+    await loadDay(curDate);
+    showView(restoreView);
+  }
 
   await loadCategories();
   checkAndCarryOver();
@@ -1555,8 +1641,10 @@ function renderTasks(){
         <td style="text-align:center;font-size:11px;color:var(--text3);">${i+1}</td>
         <td colspan="3">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input class="edit-input edit-cat" id="ei-cat" value="${esc(t.category||'')}" placeholder="구분" list="cat-datalist-edit" autocomplete="off">
-            <datalist id="cat-datalist-edit">${categoriesList.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+            <select class="cat-select" id="ei-cat">
+              <option value="">구분</option>
+              ${categoriesList.map(c=>`<option value="${esc(c)}" ${c===(t.category||'')?'selected':''}>${esc(c)}</option>`).join('')}
+            </select>
             <input class="edit-input" id="ei-name" value="${esc(t.name)}" placeholder="업무명" style="flex:1;min-width:120px;">
             <select class="pri-select" id="ei-pri">
               <option value="4" ${t.priority===4?'selected':''}>🔴 최우선</option>
@@ -1609,7 +1697,7 @@ async function saveEdit(i){
 
   const task={
     ...curDay.tasks[i],
-    category:document.getElementById('ei-cat').value.trim(),
+    category:document.getElementById('ei-cat').value,
     name,
     priority:parseInt(document.getElementById('ei-pri').value),
     note:document.getElementById('ei-note').value.trim(),
@@ -1641,60 +1729,22 @@ function priBlocks(p){const icons=['','🟢','🟡','🟠','🔴'];return `<span
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function agendaDisp(s){return esc(String(s||'').replace(/\n+/g,' / ').trim());}
 
-function getReportWeekRange(baseDateStr){
-  const [y,m,d]=baseDateStr.split('-').map(Number);
-  const base=new Date(y,m-1,d);
-  const day=base.getDay();
-  const diffToFriday = day >= 5 ? day - 5 : day + 2;
-  const start=new Date(base);
-  start.setDate(base.getDate()-diffToFriday);
-  start.setHours(0,0,0,0);
-  const end=new Date(start);
-  end.setDate(start.getDate()+6);
-  end.setHours(23,59,59,999);
-  return {start,end};
-}
-function fmtDateObj(dt){return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;}
-async function calcAverageForRange(fromStr, toStr){
-  const list=await fetchList();
-  const map=new Map((list||[]).map(v=>[v.date,v.summary]));
-  let cursor=fromStr, sum=0, count=0, totalDone=0, totalTasks=0;
-  while(cursor<=toStr){
-    const s=map.get(cursor);
-    if(s && s.total>0){
-      sum += s.done/s.total;
-      count++;
-      totalDone += s.done;
-      totalTasks += s.total;
-    }
-    cursor=addDays(cursor,1);
-  }
-  return {rate: count?Math.round(sum/count*100):0, days:count, done:totalDone, total:totalTasks};
-}
-async function renderStatCards(){
+function renderStatCards(){
   const tasks=curDay.tasks||[];
   const total=tasks.length,done=tasks.filter(t=>t.done).length;
   const rate=total?Math.round(done/total*100):0;
   document.getElementById('s-rate').textContent=rate+'%';
   document.getElementById('s-bar').style.width=rate+'%';
   document.getElementById('s-sub').textContent=`${done} / ${total} 완료`;
-
-  const weekRange=getReportWeekRange(curDate);
-  const weekAvg=await calcAverageForRange(fmtDateObj(weekRange.start), fmtDateObj(weekRange.end));
-  document.getElementById('s-week').textContent=weekAvg.rate+'%';
-
-  const [cy,cm,cd]=curDate.split('-').map(Number);
-  const monthStart=`${cy}-${pad(cm)}-01`;
-  const monthEnd=`${cy}-${pad(cm)}-${pad(cd)}`;
-  const monthAvg=await calcAverageForRange(monthStart, monthEnd);
-  document.getElementById('s-month').textContent=monthAvg.rate+'%';
+  document.getElementById('s-week').textContent='—';
+  document.getElementById('s-month').textContent='—';
 }
 
 /* ═══════════════════════════════════════
    TASK ACTIONS
 ═══════════════════════════════════════ */
 async function addTask(){
-  const cat=document.getElementById('nc').value.trim();
+  const cat=document.getElementById('nc').value;
   const name=document.getElementById('nt').value.trim();
   const priority=parseInt(document.getElementById('np').value);
   if(!name)return;
@@ -2614,7 +2664,17 @@ async function loadCategories(){
     const res=await fetchWithAuth(url);
     const rows=await res.json();
     categoriesList=(rows||[]).map(r=>r.name);
+    renderCategoryOptions();
   }catch(e){console.error('loadCategories:',e);}
+}
+
+
+function renderCategoryOptions(){
+  const sel=document.getElementById('nc');
+  if(!sel) return;
+  const current=sel.value||'';
+  sel.innerHTML='<option value="">구분</option>'+categoriesList.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(categoriesList.includes(current)) sel.value=current;
 }
 
 async function saveCategory(name,part){
@@ -2778,8 +2838,7 @@ async function addCategoryItem(){
     document.getElementById('cat-add-input').value='';
     await renderCategoryList();
     await loadCategories(); // 개인 캐시도 갱신
-    const dl=document.getElementById('cat-datalist');
-    if(dl)dl.innerHTML=categoriesList.map(c=>`<option value="${esc(c)}">`).join('');
+    renderCategoryOptions();
     toast(`✅ '[${part}] ${name}' 구분이 추가됐어요`);
   } else {
     toast('추가 실패');
@@ -4278,30 +4337,21 @@ async function removeAdmin(id,email){
 /* ═══════════════════════════════════════
    VIEW SWITCHING
 ═══════════════════════════════════════ */
-function showView(v, opts={}){
-  const { push=true } = opts;
-  const _T={today:'오늘의 업무',calendar:'캘린더',history:'기록',stats:'통계',recurring:'반복업무',admin:'관리자'};
-  const _tb=document.getElementById('tb-title');
-  if(_tb&&_T[v])_tb.textContent=_T[v];
+function showView(v){
+  const _T={today:'오늘의 업무',calendar:'캘린더',history:'기록',stats:'통계',recurring:'반복업무',admin:'관리자'};const _tb=document.getElementById('tb-title');if(_tb&&_T[v])_tb.textContent=_T[v];
   console.log('showView:', v);
+  // 마지막 탭 저장 (새로고침 시 복원)
   try{sessionStorage.setItem('lastView',v);}catch{}
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
-  const viewEl=document.getElementById('view-'+v);
-  if(viewEl)viewEl.classList.add('active');
+  document.getElementById('view-'+v).classList.add('active');
   const idx={today:0,calendar:1,history:2,stats:3,recurring:4,admin:5}[v];
-  const items=document.querySelectorAll('.sb-item');
-  if(items[idx])items[idx].classList.add('active');
-  if(push && currentSession){
-    const hash='#'+v;
-    if(location.hash!==hash){
-      history.pushState({view:v}, '', location.pathname+location.search+hash);
-    }
-  }
+  document.querySelectorAll('.sb-item')[idx].classList.add('active');
   if(v==='calendar')renderCalendar();
   if(v==='history'){histFullData=[];renderHistory();}
   if(v==='recurring'){
     renderRecurring();
+    // 구분 목록 — 관리자만 표시
     const catSection=document.getElementById('cat-section');
     if(catSection)catSection.style.display=isAdmin?'block':'none';
     if(isAdmin){
@@ -4314,6 +4364,7 @@ function showView(v, opts={}){
   }
   if(v==='admin')loadAdminData();
   if(v==='stats'){
+    // 모든 서브탭 중 overview만 표시
     ['overview','priority','category','carry','weekday','minutes'].forEach(t=>{
       const el=document.getElementById('stats-tab-'+t);
       if(el)el.style.display=t===curStatsTab?'block':'none';
@@ -4321,14 +4372,6 @@ function showView(v, opts={}){
     renderStats();
   }
 }
-
-window.addEventListener('popstate', async (e)=>{
-  if(!currentSession) return;
-  const view=(e.state&&e.state.view) || (location.hash||'#today').replace('#','') || 'today';
-  const valid=['today','calendar','history','stats','recurring','admin'];
-  const safe=valid.includes(view)?view:'today';
-  showView(safe,{push:false});
-});
 
 /* ═══════════════════════════════════════
    UTILS

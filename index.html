@@ -396,15 +396,81 @@
     .app-body{padding:14px 14px !important;width:100%;}
   }
 
+
+  .sb-ic{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .sb-ic svg,.sb-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .sb-ic svg{width:18px;height:18px;}
+  .sb-btn svg{width:14px;height:14px;}
+  .cat-select{width:120px;max-width:120px;min-width:120px;height:40px;border:1px solid var(--accent);border-radius:8px;padding:0 34px 0 12px;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--text);background-color:#fff;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;-moz-appearance:none;line-height:40px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 5 4-5' fill='%231C2333'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:12px;vertical-align:middle;}
+  .cat-select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(59,95,160,.10);}
+  .cat-select::-ms-expand{display:none;}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute;visibility:hidden" aria-hidden="true">
+  <defs>
+    <symbol id="ic-today" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+      <path d="M8 3.5v3"></path>
+      <path d="M16 3.5v3"></path>
+      <path d="M3.5 9.5h17"></path>
+      <path d="M8 14l2.2 2.2L16 11"></path>
+    </symbol>
+    <symbol id="ic-calendar" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="15" rx="3"></rect>
+      <path d="M8 3.5v3"></path>
+      <path d="M16 3.5v3"></path>
+      <path d="M3.5 9.5h17"></path>
+      <path d="M8 13h3"></path>
+      <path d="M13 13h3"></path>
+      <path d="M8 17h3"></path>
+    </symbol>
+    <symbol id="ic-history" viewBox="0 0 24 24">
+      <path d="M4 12a8 8 0 1 0 2.3-5.6"></path>
+      <path d="M4 4v5h5"></path>
+      <path d="M12 8v5l3 2"></path>
+    </symbol>
+    <symbol id="ic-stats" viewBox="0 0 24 24">
+      <path d="M4 19.5h16"></path>
+      <rect x="6" y="11" width="3" height="6.5" rx="1"></rect>
+      <rect x="11" y="8" width="3" height="9.5" rx="1"></rect>
+      <rect x="16" y="5" width="3" height="12.5" rx="1"></rect>
+    </symbol>
+    <symbol id="ic-repeat" viewBox="0 0 24 24">
+      <path d="M17 2.5l3 3-3 3"></path>
+      <path d="M20 5.5H9a4 4 0 0 0-4 4v1"></path>
+      <path d="M7 21.5l-3-3 3-3"></path>
+      <path d="M4 18.5h11a4 4 0 0 0 4-4v-1"></path>
+    </symbol>
+    <symbol id="ic-admin" viewBox="0 0 24 24">
+      <path d="M12 3l2.1 4.2 4.6.7-3.3 3.2.8 4.5-4.2-2.2-4.2 2.2.8-4.5L5.3 7.9l4.6-.7L12 3z"></path>
+      <path d="M8 19.5h8"></path>
+    </symbol>
+    <symbol id="ic-save" viewBox="0 0 24 24">
+      <path d="M6 4.5h9l3 3v12a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z"></path>
+      <path d="M8 4.5v5h7v-3"></path>
+      <path d="M8 15.5h8"></path>
+    </symbol>
+    <symbol id="ic-report" viewBox="0 0 24 24">
+      <path d="M7 4.5h8l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z"></path>
+      <path d="M15 4.5v4h4"></path>
+      <path d="M12 11v6"></path>
+      <path d="M9.5 14.5 12 17l2.5-2.5"></path>
+    </symbol>
+    <symbol id="ic-logout" viewBox="0 0 24 24">
+      <path d="M10 6H6.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2H10"></path>
+      <path d="M14 8l4 4-4 4"></path>
+      <path d="M9 12h9"></path>
+    </symbol>
+  </defs>
+</svg>
 
 <!-- SETUP SCREEN -->
 <div id="setup-screen" class="setup-screen" style="display:none;">
   <div class="setup-card">
-    <div class="setup-logo">📑 Daily</div>
+    <div class="setup-logo">Task Manager</div>
     <div class="setup-title">Google Sheets 연동 설정</div>
     <div class="setup-sub">아래 단계를 따라 설정하면 어떤 기기에서든 동일한 데이터를 쓸 수 있어요.</div>
     <div class="setup-step"><div class="setup-step-num">1</div><div class="setup-step-text"><strong>Google 시트 만들기</strong><br><a href="https://sheets.new" target="_blank" style="color:var(--accent);">sheets.new</a> 를 새 탭에서 열어 빈 구글 시트를 만드세요.</div></div>
@@ -424,7 +490,15 @@
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--sidebar-bg2);flex-direction:column;align-items:center;justify-content:center;padding:24px;z-index:999;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow2);width:100%;max-width:400px;padding:44px 40px;">
     <div style="text-align:center;margin-bottom:28px;">
-      <div style="width:54px;height:54px;border-radius:13px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px;box-shadow:0 6px 20px rgba(59,95,160,.35);">📋</div>
+      <div style="width:54px;height:54px;border-radius:13px;background:linear-gradient(135deg,#3E67D6 0%, #6D4DFF 100%);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 6px 20px rgba(59,95,160,.35);">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="display:block;">
+          <path d="M7 3.5h6l4 4v13a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 20.5V5A1.5 1.5 0 0 1 7 3.5Z" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round" fill="none"/>
+          <path d="M13 3.5v4h4" stroke="#D9CCFF" stroke-width="2" stroke-linejoin="round" fill="none"/>
+          <path d="M9 11h6" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <path d="M9 15h6" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.95" fill="none"/>
+          <path d="M9 19h4.5" stroke="#D9CCFF" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
       <div style="font-family:'Noto Serif KR',serif;font-size:22px;font-weight:700;color:var(--text);">Task Manager</div>
       <div style="font-size:12px;color:var(--text3);margin-top:4px;">일일 업무 관리</div>
     </div>
@@ -464,12 +538,12 @@
     </div>
     <nav class="sb-nav">
       <div class="sb-sec">메뉴</div>
-      <button class="sb-item active" onclick="showView('today')"><span class="sb-ic">📅</span>오늘</button>
-      <button class="sb-item" onclick="showView('calendar')"><span class="sb-ic">🗓</span>캘린더</button>
-      <button class="sb-item" onclick="showView('history')"><span class="sb-ic">📂</span>기록</button>
-      <button class="sb-item" onclick="showView('stats')"><span class="sb-ic">📊</span>통계</button>
-      <button class="sb-item" onclick="showView('recurring')"><span class="sb-ic">🔁</span>반복업무</button>
-      <button class="sb-item adm" id="admin-nav-btn" onclick="showView('admin')" style="display:none;"><span class="sb-ic">👑</span>관리자</button>
+      <button class="sb-item active" onclick="showView('today')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-today"></use></svg></span>오늘</button>
+      <button class="sb-item" onclick="showView('calendar')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-calendar"></use></svg></span>캘린더</button>
+      <button class="sb-item" onclick="showView('history')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-history"></use></svg></span>기록</button>
+      <button class="sb-item" onclick="showView('stats')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-stats"></use></svg></span>통계</button>
+      <button class="sb-item" onclick="showView('recurring')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-repeat"></use></svg></span>반복업무</button>
+      <button class="sb-item adm" id="admin-nav-btn" onclick="showView('admin')" style="display:none;"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-admin"></use></svg></span>관리자</button>
     </nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -477,9 +551,9 @@
         <div class="sb-email-txt" id="user-email"></div>
       </div>
       <div class="sb-btns">
-        <button class="sb-btn sv" id="manual-save-btn" onclick="manualSave()"><svg viewBox="0 0 24 24"><path d="M6 4.5h9l3 3v12a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z"></path><path d="M8 4.5v5h7v-3"></path><path d="M8 15.5h8"></path></svg>저장</button>
-        <button class="sb-btn" onclick="openDownloadModal()"><svg viewBox="0 0 24 24"><path d="M7 4.5h8l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z"></path><path d="M15 4.5v4h4"></path><path d="M12 11v6"></path><path d="M9.5 14.5 12 17l2.5-2.5"></path></svg>주간보고 다운로드</button>
-        <button class="sb-btn" onclick="signOut()"><svg viewBox="0 0 24 24"><path d="M10 6H6.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2H10"></path><path d="M14 8l4 4-4 4"></path><path d="M9 12h9"></path></svg>로그아웃</button>
+        <button class="sb-btn sv" id="manual-save-btn" onclick="manualSave()"><svg viewBox="0 0 24 24"><use href="#ic-save"></use></svg>저장</button>
+        <button class="sb-btn" onclick="openDownloadModal()"><svg viewBox="0 0 24 24"><use href="#ic-report"></use></svg>주간보고 다운로드</button>
+        <button class="sb-btn" onclick="signOut()"><svg viewBox="0 0 24 24"><use href="#ic-logout"></use></svg>로그아웃</button>
       </div>
     </div>
   </aside>
@@ -525,9 +599,10 @@
           <tbody id="task-tbody"></tbody>
           <tfoot><tr class="add-row"><td colspan="6">
             <div class="add-form">
-              <div style="position:relative;max-width:110px;">
-                <input class="add-input add-cat" id="nc" placeholder="구분" list="cat-datalist" autocomplete="off">
-                <datalist id="cat-datalist"></datalist>
+              <div style="position:relative;max-width:120px;">
+                <select class="cat-select" id="nc">
+                  <option value="">구분</option>
+                </select>
               </div>
               <input class="add-input" id="nt" placeholder="업무 내용 입력 후 Enter 또는 추가">
               <select class="pri-select" id="np">
@@ -1555,8 +1630,10 @@ function renderTasks(){
         <td style="text-align:center;font-size:11px;color:var(--text3);">${i+1}</td>
         <td colspan="3">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input class="edit-input edit-cat" id="ei-cat" value="${esc(t.category||'')}" placeholder="구분" list="cat-datalist-edit" autocomplete="off">
-            <datalist id="cat-datalist-edit">${categoriesList.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+            <select class="cat-select" id="ei-cat">
+              <option value="">구분</option>
+              ${categoriesList.map(c=>`<option value="${esc(c)}" ${c===(t.category||'')?'selected':''}>${esc(c)}</option>`).join('')}
+            </select>
             <input class="edit-input" id="ei-name" value="${esc(t.name)}" placeholder="업무명" style="flex:1;min-width:120px;">
             <select class="pri-select" id="ei-pri">
               <option value="4" ${t.priority===4?'selected':''}>🔴 최우선</option>
@@ -1609,7 +1686,7 @@ async function saveEdit(i){
 
   const task={
     ...curDay.tasks[i],
-    category:document.getElementById('ei-cat').value.trim(),
+    category:document.getElementById('ei-cat').value,
     name,
     priority:parseInt(document.getElementById('ei-pri').value),
     note:document.getElementById('ei-note').value.trim(),
@@ -1694,7 +1771,7 @@ async function renderStatCards(){
    TASK ACTIONS
 ═══════════════════════════════════════ */
 async function addTask(){
-  const cat=document.getElementById('nc').value.trim();
+  const cat=document.getElementById('nc').value;
   const name=document.getElementById('nt').value.trim();
   const priority=parseInt(document.getElementById('np').value);
   if(!name)return;
@@ -2594,6 +2671,14 @@ async function checkAndCarryOver(){
 /* ═══════════════════════════════════════
    구분 목록 (Categories)
 ═══════════════════════════════════════ */
+function renderCategoryOptions(){
+  const sel=document.getElementById('nc');
+  if(!sel) return;
+  const current=sel.value||'';
+  sel.innerHTML='<option value="">구분</option>'+categoriesList.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(categoriesList.includes(current)) sel.value=current;
+}
+
 async function loadCategories(){
   if(!currentSession?.user?.id)return;
   try{
@@ -2614,6 +2699,7 @@ async function loadCategories(){
     const res=await fetchWithAuth(url);
     const rows=await res.json();
     categoriesList=(rows||[]).map(r=>r.name);
+    renderCategoryOptions();
   }catch(e){console.error('loadCategories:',e);}
 }
 
@@ -2778,8 +2864,7 @@ async function addCategoryItem(){
     document.getElementById('cat-add-input').value='';
     await renderCategoryList();
     await loadCategories(); // 개인 캐시도 갱신
-    const dl=document.getElementById('cat-datalist');
-    if(dl)dl.innerHTML=categoriesList.map(c=>`<option value="${esc(c)}">`).join('');
+    renderCategoryOptions();
     toast(`✅ '[${part}] ${name}' 구분이 추가됐어요`);
   } else {
     toast('추가 실패');

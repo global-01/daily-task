@@ -4086,11 +4086,15 @@ function renderAdminDashboard(from,to){
   let selHtml='<option value="">사용자 선택</option>';
   const selectGroups={};
   filtered.forEach(u=>{
-    const key=isSuperAdmin() ? (u.team||'(팀 미지정)') : (getPartDisplay(u.part)||'(파트 미지정)');
-    if(!selectGroups[key])selectGroups[key]=[];
-    selectGroups[key].push(u);
+    const groupKeys=isSuperAdmin()
+      ? (parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)'])
+      : [getPartDisplay(u.part)||'(파트 미지정)'];
+    groupKeys.forEach(key=>{
+      if(!selectGroups[key])selectGroups[key]=[];
+      if(!selectGroups[key].some(x=>x.user_id===u.user_id)) selectGroups[key].push(u);
+    });
   });
-  const selectPreferredKeys=isSuperAdmin() ? [...teamsList,'(팀 미지정)'] : [...PARTS,'(파트 미지정)'];
+  const selectPreferredKeys=[...PARTS,'(파트 미지정)'];
   getOrderedGroupKeys(selectGroups, selectPreferredKeys).forEach(groupName=>{
     const users=selectGroups[groupName];
     if(!users||!users.length)return;
@@ -4247,37 +4251,61 @@ function renderAdminUserTasks(){
   const uid=document.getElementById('admin-user-select').value;
   const catFilter=document.getElementById('admin-cat-filter')?.value||'';
   const el=document.getElementById('admin-user-tasks');
-  if(!uid){el.innerHTML='';return;}
-  const user=adminAllData.find(u=>u.user_id===uid);
-  if(!user||!user.days.length){el.innerHTML='<div style="padding:14px 18px;font-size:13px;color:var(--text3);">이 기간에 기록이 없어요</div>';return;}
 
+  let users=[];
+  if(uid){
+    const user=adminAllData.find(u=>u.user_id===uid);
+    if(user) users=[user];
+  } else if(catFilter){
+    users=getFilteredUsers();
+  } else {
+    el.innerHTML='';
+    return;
+  }
+
+  if(!users.length){
+    el.innerHTML='<div style="padding:14px 18px;font-size:13px;color:var(--text3);">이 기간에 기록이 없어요</div>';
+    return;
+  }
+
+  const priIcon=['','🟢','🟡','🟠','🔴'];
   let html='';
-  user.days.forEach(d=>{
-    const [y,m,dd]=d.date.split('-').map(Number);
-    const dow=new Date(y,m-1,dd).getDay();
-    // 구분 필터 적용
-    const tasks=(d.data?.tasks||[]).filter(t=>!catFilter||t.category===catFilter);
-    if(!tasks.length&&catFilter)return; // 해당 구분 업무 없으면 날짜 건너뜀
-    const priIcon=['','🟢','🟡','🟠','🔴'];
-    html+=`<div style="border-bottom:2px solid var(--border);padding:10px 18px;">
-      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일)${d.data?.agenda?' · '+agendaDisp(d.data.agenda):''}</div>
-      ${tasks.length?tasks.map(t=>{
-        const noteShort=t.note&&t.note.length>20?t.note.slice(0,20)+'…':t.note||'';
-        const noteFull=t.note||'';
-        const hasMin=!!(t.minutesTitle);
-        return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border);">
-          <span style="flex-shrink:0;color:${t.done?'var(--green)':'var(--red)'};">${t.done?'✓':'○'}</span>
-          <span style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.carriedFrom?'🔄 ':''}${t.isRecurring?'🔁 ':''}${esc(t.category?`[${t.category}] `:'')}${esc(t.name)}</span>
-          ${noteShort?`<span title="${esc(noteFull)}" style="flex-shrink:0;font-size:11px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;border-bottom:1px dashed var(--border2);">📎 ${esc(noteShort)}</span>`:''}
-          ${hasMin?`<span onclick="showAdminMinutes(${JSON.stringify({title:t.minutesTitle,datetime:t.minutesDatetime,attendees:t.minutesAttendees,content:t.minutesContent,action:t.minutesAction}).replace(/"/g,'&quot;')})" style="flex-shrink:0;font-size:11px;color:var(--blue);cursor:pointer;text-decoration:underline;">📋 회의록</span>`:''}
-          <span style="flex-shrink:0;width:20px;text-align:center;">${priIcon[t.priority]||''}</span>
-        </div>`;
-      }).join('')
-      :'<div style="font-size:12px;color:var(--text3);">업무 없음</div>'}
-      ${d.data?.memo?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:4px;">💬 ${esc(d.data.memo)}</div>`:''}
-    </div>`;
+
+  users.forEach(user=>{
+    let userHtml='';
+    (user.days||[]).forEach(d=>{
+      const [y,m,dd]=d.date.split('-').map(Number);
+      const dow=new Date(y,m-1,dd).getDay();
+      const tasks=(d.data?.tasks||[]).filter(t=>!catFilter||t.category===catFilter);
+      if(!tasks.length&&catFilter)return;
+      userHtml+=`<div style="border-bottom:2px solid var(--border);padding:10px 18px;">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일)${d.data?.agenda?' · '+agendaDisp(d.data.agenda):''}</div>
+        ${tasks.length?tasks.map(t=>{
+          const noteShort=t.note&&t.note.length>20?t.note.slice(0,20)+'…':t.note||'';
+          const noteFull=t.note||'';
+          const hasMin=!!(t.minutesTitle);
+          return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border);">
+            <span style="flex-shrink:0;color:${t.done?'var(--green)':'var(--red)'};">${t.done?'✓':'○'}</span>
+            <span style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.carriedFrom?'🔄 ':''}${t.isRecurring?'🔁 ':''}${esc(t.category?`[${t.category}] `:'')}${esc(t.name)}</span>
+            ${noteShort?`<span title="${esc(noteFull)}" style="flex-shrink:0;font-size:11px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;border-bottom:1px dashed var(--border2);">📎 ${esc(noteShort)}</span>`:''}
+            ${hasMin?`<span onclick="showAdminMinutes(${JSON.stringify({title:t.minutesTitle,datetime:t.minutesDatetime,attendees:t.minutesAttendees,content:t.minutesContent,action:t.minutesAction}).replace(/"/g,'&quot;')})" style="flex-shrink:0;font-size:11px;color:var(--blue);cursor:pointer;text-decoration:underline;">📋 회의록</span>`:''}
+            <span style="flex-shrink:0;width:20px;text-align:center;">${priIcon[t.priority]||''}</span>
+          </div>`;
+        }).join('')
+        :'<div style="font-size:12px;color:var(--text3);">업무 없음</div>'}
+        ${d.data?.memo?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:4px;">💬 ${esc(d.data.memo)}</div>`:''}
+      </div>`;
+    });
+
+    if(userHtml){
+      html+=`<div style="padding:0;">
+        ${(!uid&&catFilter)?`<div style="padding:12px 18px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);">${esc(user.name)} <span style="font-weight:400;color:var(--text3);">(${esc(user.email)})</span></div>`:''}
+        ${userHtml}
+      </div>`;
+    }
   });
-  el.innerHTML=html;
+
+  el.innerHTML=html||'<div style="padding:14px 18px;font-size:13px;color:var(--text3);">표시할 업무가 없어요</div>';
 }
 
 function showAdminMinutes(obj){

@@ -580,7 +580,7 @@
       <div class="stats-row">
         <div class="stat-card"><div class="lbl">오늘 달성률</div><div class="val" id="s-rate">0%</div><div class="prog-wrap"><div class="prog-bar" id="s-bar" style="width:0%"></div></div><div class="sub" id="s-sub">0 / 0 완료</div></div>
         <div class="stat-card"><div class="lbl">이번 주 평균</div><div class="val" id="s-week">—</div><div class="sub">금~목 주간 평균</div></div>
-        <div class="stat-card"><div class="lbl">이번 달 평균</div><div class="val" id="s-month">—</div><div class="sub">당월 누적 평균</div></div>
+        <div class="stat-card"><div class="lbl">이번 달 평균</div><div class="val" id="s-month">—</div><div class="sub">해당월 전체 평균</div></div>
       </div>
       <div class="section-card">
         <div class="section-head"><h3>📌 주요 일정</h3></div>
@@ -1150,7 +1150,9 @@ async function signInWithEmail(){
   const pw=document.getElementById('login-pw-input').value;
   const errEl=document.getElementById('login-error');
   if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력해 주세요.';errEl.style.display='block';return;}
+  if(pw.length<6){errEl.textContent='비밀번호는 6자 이상이어야 해요.';errEl.style.display='block';return;}
   errEl.style.display='none';
+  errEl.style.color='var(--red)';
   try{
     const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
       method:'POST',
@@ -1158,24 +1160,35 @@ async function signInWithEmail(){
       body:JSON.stringify({email,password:pw})
     });
     let data=await res.json();
+
     if(!res.ok){
-      // 로그인 실패 → 자동 회원가입 시도
       const signupRes=await fetch(`${SB_URL}/auth/v1/signup`,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({email,password:pw,data:{auto_signup:true}})
+      });
+      const signupData=await signupRes.json();
+
+      if(!signupRes.ok){
+        errEl.textContent=signupData.error_description||signupData.msg||'이메일 또는 비밀번호를 확인해 주세요.';
+        errEl.style.display='block';
+        return;
+      }
+
+      const retryRes=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
         method:'POST',
         headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
         body:JSON.stringify({email,password:pw})
       });
-      const signupData=await signupRes.json();
-      if(!signupRes.ok){
-        errEl.textContent='이메일 또는 비밀번호를 확인해 주세요.';errEl.style.display='block';return;
-      }
-      if(signupData.access_token){
-        data=signupData;
-      } else {
-        errEl.style.color='var(--green)';
-        errEl.textContent='✅ 가입 완료! 다시 로그인해 주세요.';errEl.style.display='block';return;
+      data=await retryRes.json();
+
+      if(!retryRes.ok||!data.access_token){
+        errEl.textContent='가입은 완료됐지만 자동 로그인에 실패했어요. 다시 로그인해 주세요.';
+        errEl.style.display='block';
+        return;
       }
     }
+
     const userRes=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+data.access_token}});
     const user=await userRes.json();
     currentSession={...data,user};
@@ -1760,9 +1773,10 @@ async function renderStatCards(){
   const weekAvg=await calcAverageForRange(fmtDateObj(weekRange.start), fmtDateObj(weekRange.end));
   document.getElementById('s-week').textContent=weekAvg.rate+'%';
 
-  const [cy,cm,cd]=curDate.split('-').map(Number);
+  const [cy,cm]=curDate.split('-').map(Number);
   const monthStart=`${cy}-${pad(cm)}-01`;
-  const monthEnd=`${cy}-${pad(cm)}-${pad(cd)}`;
+  const monthLastDay=new Date(cy,cm,0).getDate();
+  const monthEnd=`${cy}-${pad(cm)}-${pad(monthLastDay)}`;
   const monthAvg=await calcAverageForRange(monthStart, monthEnd);
   document.getElementById('s-month').textContent=monthAvg.rate+'%';
 }
@@ -2687,12 +2701,13 @@ async function loadCategories(){
       `${SB_URL}/rest/v1/user_profiles?user_id=eq.${currentSession.user.id}&select=part`
     );
     const prof=await profRes.json();
-    const userPart=(prof&&prof[0]?.part)||'';
+    const userParts=parsePartValues((prof&&prof[0]?.part)||'');
 
     // 해당 파트 + 공통 구분 로드
     let url=`${SB_URL}/rest/v1/categories?select=name,part,sort_order&order=sort_order.asc,name.asc`;
-    if(userPart){
-      url+=`&or=(part.eq.${encodeURIComponent(userPart)},part.eq.공통)`;
+    if(userParts.length){
+      const partFilters=userParts.map(part=>`part.eq.${encodeURIComponent(part)}`).join(',');
+      url+=`&or=(${partFilters},part.eq.공통)`;
     } else {
       url+=`&part=eq.공통`; // 파트 미지정이면 공통만
     }
@@ -3571,7 +3586,7 @@ function getAdminDateRange(){
 
 /* ── 전체 데이터 로드 ── */
 let adminTeamFilter=''; // 현재 팀 필터
-let userProfiles={}; // {user_id: {name, team}}
+let userProfiles={}; // {user_id: {name, team, part}}
 
 async function loadTeams(){
   try{
@@ -3603,7 +3618,7 @@ async function loadAdminData(){
     );
     const profiles=await profRes.json();
     userProfiles={};
-    (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||'',part:p.part||''};});
+    (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||'',part:serializePartValues(p.part||'')};});
 
     // 3) 기간 내 daily_tasks
     // 팀 관리자: 담당 팀 user_id만 필터해서 가져옴
@@ -3611,7 +3626,7 @@ async function loadAdminData(){
     if(!isSuperAdmin()&&adminAssignedPart){
       // 담당 파트 프로필의 user_id 목록 추출
       const partUserIds=(profiles||[])
-        .filter(p=>p.part===adminAssignedPart)
+        .filter(p=>hasPart(p.part,adminAssignedPart))
         .map(p=>p.user_id);
       if(partUserIds.length>0){
         taskUrl+=`&user_id=in.(${partUserIds.join(',')})`;
@@ -3634,7 +3649,7 @@ async function loadAdminData(){
       user_id:u.user_id,
       name:userProfiles[u.user_id]?.name||u.email.split('@')[0],
       team:userProfiles[u.user_id]?.team||'',
-      part:userProfiles[u.user_id]?.part||'',
+      part:serializePartValues(userProfiles[u.user_id]?.part||''),
       joined_at:u.joined_at,
       last_sign_in_at:u.last_sign_in_at,
       total_days:u.total_days||0,
@@ -3646,7 +3661,7 @@ async function loadAdminData(){
     if(!isSuperAdmin()){
       if(adminAssignedPart){
         // 담당 파트만
-        adminAllData=allUsers.filter(u=>u.part===adminAssignedPart);
+        adminAllData=allUsers.filter(u=>hasPart(u.part,adminAssignedPart));
       } else {
         // 담당 파트 미지정 → 전체 조회 (제한없음)
         adminAllData=allUsers;
@@ -3667,6 +3682,31 @@ async function loadAdminData(){
 /* ── 팀/파트 필터 ── */
 let adminPartFilter=''; // 팀 관리자용 파트 필터
 const PARTS=['글로벌','일본','신사업']; // 고정 파트 목록
+
+function parsePartValues(partValue){
+  if(Array.isArray(partValue))return partValue.filter(Boolean);
+  if(typeof partValue!=='string')return[];
+  const trimmed=partValue.trim();
+  if(!trimmed)return[];
+  try{
+    const parsed=JSON.parse(trimmed);
+    if(Array.isArray(parsed))return parsed.map(v=>String(v).trim()).filter(Boolean);
+  }catch(e){}
+  return trimmed.split(',').map(v=>v.trim()).filter(Boolean);
+}
+
+function serializePartValues(parts){
+  return parsePartValues(parts).join(',');
+}
+
+function hasPart(partValue,targetPart){
+  return parsePartValues(partValue).includes(targetPart);
+}
+
+function getPartDisplay(partValue){
+  const parts=parsePartValues(partValue);
+  return parts.join(', ');
+}
 
 function renderAdminTeamFilter(){
   const wrap=document.getElementById('admin-team-filter-wrap');
@@ -3721,7 +3761,7 @@ function getFilteredUsers(){
   if(!isSuperAdmin()){
     // 팀 관리자: 파트 필터 적용
     if(!adminPartFilter)return adminAllData;
-    return adminAllData.filter(u=>u.part===adminPartFilter);
+    return adminAllData.filter(u=>hasPart(u.part,adminPartFilter));
   }
   // 슈퍼 관리자: 팀 필터 적용
   if(!adminTeamFilter)return adminAllData;
@@ -3795,7 +3835,7 @@ function renderAdminDashboard(from,to){
     // 팀 관리자: 파트별로 그룹핑
     const partGroups={};
     filtered.forEach(u=>{
-      const p=u.part||'(파트 미지정)';
+      const p=getPartDisplay(u.part)||'(파트 미지정)';
       if(!partGroups[p])partGroups[p]=[];
       partGroups[p].push(u);
     });
@@ -3867,7 +3907,7 @@ function renderAdminDashboard(from,to){
     // 파트별 그룹핑
     const undoneByPart={};
     undoneItems.forEach(item=>{
-      const p=item.part||'(파트 미지정)';
+      const p=getPartDisplay(item.part)||'(파트 미지정)';
       if(!undoneByPart[p])undoneByPart[p]=[];
       undoneByPart[p].push(item);
     });
@@ -3912,7 +3952,7 @@ function renderAdminDashboard(from,to){
   if(!isSuperAdmin()){
     const partOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
     userListEl.innerHTML=`
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원의 파트를 설정할 수 있어요.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원의 파트를 다중 선택으로 설정할 수 있어요.</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:var(--surface2);">
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
@@ -3927,7 +3967,7 @@ function renderAdminDashboard(from,to){
               <td style="padding:8px 10px;font-weight:500;">${esc(u.name)}</td>
               <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
               <td style="padding:6px 10px;text-align:center;">
-                <select id="ppart_${u.user_id}" style="border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+                <select id="ppart_${u.user_id}" multiple size="3" style="min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
                   ${partOpts}
                 </select>
               </td>
@@ -3939,7 +3979,10 @@ function renderAdminDashboard(from,to){
     // 파트 드롭다운 현재값 반영
     adminAllData.forEach(u=>{
       const sel=document.getElementById('ppart_'+u.user_id);
-      if(sel)sel.value=u.part||'';
+      if(sel){
+        const parts=parsePartValues(u.part);
+        [...sel.options].forEach(opt=>{opt.selected=parts.includes(opt.value);});
+      }
     });
     return;
   }
@@ -3947,7 +3990,7 @@ function renderAdminDashboard(from,to){
   const teamSelectOpts=`<option value="">미지정</option>`+teamsList.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   const superPartOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
   userListEl.innerHTML=`
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">이름·팀·파트를 설정하면 관리자 화면에서 구분해서 볼 수 있어요.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">이름·팀·파트를 설정하면 관리자 화면에서 구분해서 볼 수 있어요. 파트는 다중 선택할 수 있어요.</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
       <thead><tr style="background:var(--surface2);">
         <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
@@ -3968,7 +4011,7 @@ function renderAdminDashboard(from,to){
               </select>
             </td>
             <td style="padding:6px 10px;text-align:center;">
-              <select id="ppart_${u.user_id}" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              <select id="ppart_${u.user_id}" multiple size="3" style="width:100%;min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
                 ${superPartOpts}
               </select>
             </td>
@@ -3982,7 +4025,10 @@ function renderAdminDashboard(from,to){
     const tsel=document.getElementById('pteam_'+u.user_id);
     if(tsel)tsel.value=u.team||'';
     const psel=document.getElementById('ppart_'+u.user_id);
-    if(psel)psel.value=u.part||'';
+    if(psel){
+      const parts=parsePartValues(u.part);
+      [...psel.options].forEach(opt=>{opt.selected=parts.includes(opt.value);});
+    }
   });
 
   // 슈퍼 관리자만: 전체사용자목록 + 관리자설정 표시
@@ -3998,7 +4044,9 @@ function renderAdminDashboard(from,to){
 async function saveUserProfile(userId,email){
   const name=document.getElementById('pname_'+userId)?.value||'';
   const team=document.getElementById('pteam_'+userId)?.value||'';
-  const part=document.getElementById('ppart_'+userId)?.value||'';
+  const partSelect=document.getElementById('ppart_'+userId);
+  const selectedParts=partSelect?[...partSelect.selectedOptions].map(opt=>opt.value).filter(Boolean):[];
+  const part=serializePartValues(selectedParts);
   try{
     const chk=await fetchWithAuth(`${SB_URL}/rest/v1/user_profiles?user_id=eq.${userId}&select=user_id`);
     const ex=await chk.json();

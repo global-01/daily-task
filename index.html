@@ -4152,29 +4152,93 @@ async function renderAdminDashboard(from,to){
   });
   sel.innerHTML=selHtml;
 
-  // 구분 필터 드롭다운 - 현재 사용자 파트 + 실제 작성된 업무 구분을 함께 반영
+  // 구분 필터 드롭다운 - 파트별로 묶어서 표시
   await loadAllCategories();
-  const allCats=new Set();
-
-  // 현재 필터된 사용자에게 연결된 파트 기준 구분 수집
-  const visibleParts=new Set(['공통']);
-  filtered.forEach(u=>{
-    const parts=parsePartValues(u.part);
-    if(parts.length) parts.forEach(p=>visibleParts.add(p));
-  });
-  (allCategoriesData||[]).forEach(c=>{
-    if(c?.name && visibleParts.has(c.part||'공통')) allCats.add(c.name);
-  });
-
-  // 실제 작성된 업무 구분도 함께 반영
-  filtered.forEach(u=>u.days.forEach(d=>(d.data?.tasks||[]).forEach(t=>{if(t.category)allCats.add(t.category);})));
-
   const catSel=document.getElementById('admin-cat-filter');
   if(catSel){
     const prevCat=catSel.value;
-    catSel.innerHTML='<option value="">전체 구분</option>'+[...allCats].sort((a,b)=>a.localeCompare(b,'ko')).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    if(prevCat&&allCats.has(prevCat))catSel.value=prevCat;
+
+    // 현재 화면에서 보여줄 파트 범위 결정
+    const scopedParts=['공통'];
+    if(!isSuperAdmin()){
+      if(adminAssignedPart){
+        if(!scopedParts.includes(adminAssignedPart)) scopedParts.push(adminAssignedPart);
+      } else if(adminPartFilter){
+        if(!scopedParts.includes(adminPartFilter)) scopedParts.push(adminPartFilter);
+      } else {
+        filtered.forEach(u=>parsePartValues(u.part).forEach(p=>{ if(!scopedParts.includes(p)) scopedParts.push(p); }));
+      }
+    } else {
+      filtered.forEach(u=>parsePartValues(u.part).forEach(p=>{ if(!scopedParts.includes(p)) scopedParts.push(p); }));
+    }
+
+    const catsByPart={};
+    scopedParts.forEach(part=>catsByPart[part]=new Set());
+
+    // categories 테이블 기준 파트별 구분 수집
+    (allCategoriesData||[]).forEach(c=>{
+      const part=(c?.part||'공통');
+      if(c?.name && scopedParts.includes(part)){
+        catsByPart[part].add(c.name);
+      }
+    });
+
+    // 실제 작성된 업무 구분도 같이 반영
+    filtered.forEach(u=>{
+      const userParts=parsePartValues(u.part).filter(p=>scopedParts.includes(p));
+      (u.days||[]).forEach(d=>(d.data?.tasks||[]).forEach(t=>{
+        if(!t.category) return;
+
+        // 1) categories 테이블과 이름 매칭되는 파트에 우선 배치
+        let matchedParts=(allCategoriesData||[])
+          .filter(c=>c?.name===t.category && scopedParts.includes(c.part||'공통'))
+          .map(c=>c.part||'공통');
+
+        if(matchedParts.length){
+          matchedParts.forEach(part=>{
+            catsByPart[part] ??= new Set();
+            catsByPart[part].add(t.category);
+          });
+          return;
+        }
+
+        // 2) 공통 목록에 이미 존재하면 공통으로
+        if((catsByPart['공통']||new Set()).has(t.category)){
+          catsByPart['공통'].add(t.category);
+          return;
+        }
+
+        // 3) 특정 파트만 보는 화면이면 그 파트에 배치, 아니면 사용자 파트들에 배치
+        const specificParts=scopedParts.filter(p=>p!=='공통');
+        if(specificParts.length===1){
+          const part=specificParts[0];
+          catsByPart[part] ??= new Set();
+          catsByPart[part].add(t.category);
+        } else if(userParts.length){
+          userParts.forEach(part=>{
+            catsByPart[part] ??= new Set();
+            catsByPart[part].add(t.category);
+          });
+        } else {
+          catsByPart['공통'].add(t.category);
+        }
+      }));
+    });
+
+    const orderedParts=['공통', ...PARTS.filter(p=>scopedParts.includes(p)), ...scopedParts.filter(p=>p!=='공통' && !PARTS.includes(p))];
+    let options='<option value="">전체 구분</option>';
+    orderedParts.forEach(part=>{
+      const cats=[...(catsByPart[part]||new Set())].sort((a,b)=>a.localeCompare(b,'ko'));
+      if(!cats.length) return;
+      options += `<optgroup label="${esc(part)}">` + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('') + '</optgroup>';
+    });
+
+    catSel.innerHTML=options;
+    const availableCats=new Set();
+    orderedParts.forEach(part=>[...(catsByPart[part]||new Set())].forEach(c=>availableCats.add(c)));
+    if(prevCat && availableCats.has(prevCat)) catSel.value=prevCat;
   }
+
 
   // 전체 사용자 목록 + 팀/이름 편집
   const userListEl=document.getElementById('admin-user-list');

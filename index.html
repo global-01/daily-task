@@ -4081,12 +4081,23 @@ function renderAdminDashboard(from,to){
     undoneEl.innerHTML=undoneHtml;
   }
 
-  // 사용자 선택 드롭다운 (파트별 그룹핑)
+  // 사용자 선택 드롭다운
   const sel=document.getElementById('admin-user-select');
   let selHtml='<option value="">사용자 선택</option>';
-  Object.entries(teamGroups).sort().forEach(([team,users])=>{
-    selHtml+=`<optgroup label="${esc(team)}">`;
-    users.forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)} (${esc(u.email)})</option>`; });
+  const selectGroups={};
+  filtered.forEach(u=>{
+    const key=isSuperAdmin() ? (u.team||'(팀 미지정)') : (getPartDisplay(u.part)||'(파트 미지정)');
+    if(!selectGroups[key])selectGroups[key]=[];
+    selectGroups[key].push(u);
+  });
+  const selectPreferredKeys=isSuperAdmin() ? [...teamsList,'(팀 미지정)'] : [...PARTS,'(파트 미지정)'];
+  getOrderedGroupKeys(selectGroups, selectPreferredKeys).forEach(groupName=>{
+    const users=selectGroups[groupName];
+    if(!users||!users.length)return;
+    selHtml+=`<optgroup label="${esc(groupName)}">`;
+    users
+      .sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'))
+      .forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)} (${esc(u.email)})</option>`; });
     selHtml+=`</optgroup>`;
   });
   sel.innerHTML=selHtml;

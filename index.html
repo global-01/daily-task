@@ -1658,6 +1658,8 @@ const DAYS=['일','월','화','수','목','금','토'];
 let curDate=todayStr();
 let curDay={tasks:[],agenda:'',memo:''};
 let categoriesList=[]; // 사용자 구분 목록 캐시
+let categoriesData=[]; // [{name, part}]
+let currentUserParts=[]; // 현재 사용자 파트 목록
 let calYear=new Date().getFullYear();
 let calMonth=new Date().getMonth()+1;
 
@@ -1776,8 +1778,7 @@ function renderTasks(){
         <td colspan="3">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <select class="cat-select" id="ei-cat">
-              <option value="">구분</option>
-              ${categoriesList.map(c=>`<option value="${esc(c)}" ${c===(t.category||'')?'selected':''}>${esc(c)}</option>`).join('')}
+              ${getCategoryOptionsHtml(t.category||'')}
             </select>
             <input class="edit-input" id="ei-name" value="${esc(t.name)}" placeholder="업무명" style="flex:1;min-width:120px;">
             <select class="pri-select" id="ei-pri">
@@ -1927,6 +1928,15 @@ async function addTask(){
   renderTasks();renderStatCards();await saveCurrent();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.id==='nt')addTask();});
+// PC 저장 단축키: Ctrl+S / Cmd+S
+document.addEventListener('keydown',e=>{
+  const key=(e.key||'').toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&key==='s'){
+    e.preventDefault();
+    const mainApp=document.getElementById('main-app');
+    if(mainApp&&mainApp.style.display!=='none') manualSave();
+  }
+});
 async function toggleTask(i){curDay.tasks[i].done=!curDay.tasks[i].done;renderTasks();renderStatCards();await saveCurrent();}
 async function delTask(i){curDay.tasks.splice(i,1);renderTasks();renderStatCards();await saveCurrent();}
 async function saveNote(i,val){curDay.tasks[i].note=val;await saveCurrent(true);}
@@ -2817,11 +2827,46 @@ async function checkAndCarryOver(){
 /* ═══════════════════════════════════════
    구분 목록 (Categories)
 ═══════════════════════════════════════ */
+function getCategoryOptionsHtml(selected=''){
+  const rows=categoriesData||[];
+  const hasMultiParts=(currentUserParts||[]).length>1;
+  const safeSelected=String(selected||'');
+
+  if(!rows.length){
+    return `<option value="">구분</option>`;
+  }
+
+  if(!hasMultiParts){
+    const names=[...new Set(rows.map(r=>r.name).filter(Boolean))];
+    return `<option value="">구분</option>` + names.map(name=>`<option value="${esc(name)}" ${name===safeSelected?'selected':''}>${esc(name)}</option>`).join('');
+  }
+
+  const groupOrder=['공통', ...(currentUserParts||[])];
+  const seen=new Set();
+  let html='<option value="">구분</option>';
+  groupOrder.forEach(part=>{
+    const partRows=rows.filter(r=>r.part===part && r.name && !seen.has(`${part}__${r.name}`));
+    if(!partRows.length)return;
+    html += `<optgroup label="${esc(part)}">`;
+    partRows.forEach(r=>{
+      seen.add(`${part}__${r.name}`);
+      html += `<option value="${esc(r.name)}" ${r.name===safeSelected?'selected':''}>${esc(r.name)}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+
+  const etcRows=rows.filter(r=>!groupOrder.includes(r.part) && r.name);
+  if(etcRows.length){
+    html += `<optgroup label="기타">` + etcRows.map(r=>`<option value="${esc(r.name)}" ${r.name===safeSelected?'selected':''}>${esc(r.name)}</option>`).join('') + `</optgroup>`;
+  }
+  return html;
+}
+
 function renderCategoryOptions(){
   const sel=document.getElementById('nc');
   if(!sel) return;
   const current=sel.value||'';
-  sel.innerHTML='<option value="">구분</option>'+categoriesList.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.innerHTML=getCategoryOptionsHtml(current);
   if(categoriesList.includes(current)) sel.value=current;
 }
 
@@ -2833,19 +2878,20 @@ async function loadCategories(){
       `${SB_URL}/rest/v1/user_profiles?user_id=eq.${currentSession.user.id}&select=part`
     );
     const prof=await profRes.json();
-    const userParts=parsePartValues((prof&&prof[0]?.part)||'');
+    currentUserParts=parsePartValues((prof&&prof[0]?.part)||'');
 
     // 해당 파트 + 공통 구분 로드
     let url=`${SB_URL}/rest/v1/categories?select=name,part,sort_order&order=sort_order.asc,name.asc`;
-    if(userParts.length){
-      const partFilters=userParts.map(part=>`part.eq.${encodeURIComponent(part)}`).join(',');
+    if(currentUserParts.length){
+      const partFilters=currentUserParts.map(part=>`part.eq.${encodeURIComponent(part)}`).join(',');
       url+=`&or=(${partFilters},part.eq.공통)`;
     } else {
       url+=`&part=eq.공통`; // 파트 미지정이면 공통만
     }
     const res=await fetchWithAuth(url);
     const rows=await res.json();
-    categoriesList=(rows||[]).map(r=>r.name);
+    categoriesData=(rows||[]).map(r=>({name:r.name,part:r.part||'공통'}));
+    categoriesList=[...new Set(categoriesData.map(r=>r.name).filter(Boolean))];
     renderCategoryOptions();
   }catch(e){console.error('loadCategories:',e);}
 }

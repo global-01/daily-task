@@ -8,19 +8,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#f5f3ef; --surface:#fff; --surface2:#faf9f7;
-    --border:#e8e4de; --border2:#d4cfc8;
-    --text:#2c2825; --text2:#6b6560; --text3:#9e9890;
-    --accent:#8b7355; --accent2:#a68960; --accent-soft:#f0ebe3;
-    --green:#6a9e7a; --green-soft:#eaf3ed;
-    --red:#c97070; --red-soft:#fdeeed;
-    --blue:#6b8fae; --blue-soft:#edf2f7;
-    --shadow:0 1px 4px rgba(44,40,37,.07),0 4px 16px rgba(44,40,37,.05);
-    --shadow2:0 2px 8px rgba(44,40,37,.1),0 8px 32px rgba(44,40,37,.07);
-    --r:12px; --r2:8px;
+    --sidebar-bg:#1C2333; --sidebar-bg2:#151C2B;
+    --sidebar-border:rgba(255,255,255,.07);
+    --sidebar-text:#C8D0E0; --sidebar-text2:#6B7A96;
+    --sidebar-w:216px;
+    --bg:#F2F5FB; --surface:#FFFFFF; --surface2:#F8F9FC;
+    --border:#E4E9F2; --border2:#CDD4E4;
+    --text:#1C2333; --text2:#4A5568; --text3:#8A96A8;
+    --accent:#3B5FA0; --accent2:#4A72BB; --accent-soft:#EEF2FA;
+    --green:#3A8C6E; --green-soft:#E8F5EF;
+    --red:#C0444A;   --red-soft:#FDEEED;
+    --blue:#3B5FA0;  --blue-soft:#EEF2FA;
+    --shadow:0 1px 3px rgba(28,35,51,.06),0 4px 12px rgba(28,35,51,.04);
+    --shadow2:0 4px 20px rgba(28,35,51,.1),0 8px 32px rgba(28,35,51,.07);
+    --r:10px; --r2:7px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;display:flex;}
 
   /* ── SETUP ── */
   .setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -45,9 +49,6 @@
   .app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;gap:20px;height:58px;position:sticky;top:0;z-index:100}
   .app-logo{font-family:'Noto Serif KR',serif;font-size:19px;color:var(--accent);white-space:nowrap}
   .header-nav{display:flex;gap:3px}
-  .nav-btn{padding:5px 14px;border-radius:20px;border:none;background:transparent;color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s}
-  .nav-btn:hover{background:var(--accent-soft);color:var(--accent)}
-  .nav-btn.active{background:var(--accent);color:white}
   .header-right{margin-left:auto;display:flex;align-items:center;gap:12px}
   .sync-status{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px}
   .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
@@ -354,6 +355,47 @@
     .cal-cell{min-height:70px;padding:5px 4px 4px}
     .cal-task-item{font-size:9px}
   }
+
+  /* ── 사이드바 레이아웃 ── */
+  .sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+  .sb-logo{padding:20px 16px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .sb-logo-icon{width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 10px rgba(59,95,160,.4);}
+  .sb-logo-text{font-family:'Noto Serif KR',serif;font-size:17px;font-weight:700;color:#fff;}
+  .sb-logo-sub{font-size:10px;color:var(--sidebar-text2);letter-spacing:.3px;}
+  .sb-nav{flex:1;padding:10px 8px;overflow-y:auto;}
+  .sb-sec{font-size:10px;font-weight:600;color:var(--sidebar-text2);text-transform:uppercase;letter-spacing:.8px;padding:8px 10px 4px;}
+  .sb-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;color:var(--sidebar-text);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;background:transparent;width:100%;text-align:left;margin-bottom:2px;font-family:'Noto Sans KR',sans-serif;}
+  .sb-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .sb-item.active{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(59,95,160,.35);}
+  .sb-ic{font-size:15px;width:20px;text-align:center;flex-shrink:0;opacity:.75;}
+  .sb-item.active .sb-ic{opacity:1;}
+  .sb-item.adm{color:#EF9FA3;background:rgba(192,68,74,.1);margin-top:6px;}
+  .sb-item.adm:hover{background:rgba(192,68,74,.2);}
+  .sb-item.adm.active{background:#C0444A;box-shadow:0 2px 10px rgba(192,68,74,.35);}
+  .sb-foot{border-top:1px solid var(--sidebar-border);padding:12px;flex-shrink:0;}
+  .sb-user{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .sb-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;}
+  .sb-email-txt{font-size:11px;color:var(--sidebar-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .sb-btns{display:flex;gap:4px;}
+  .sb-btn{flex:1;padding:6px 0;border-radius:5px;border:1px solid var(--sidebar-border);background:transparent;color:var(--sidebar-text2);font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+  .sb-btn:hover{background:rgba(255,255,255,.06);color:var(--sidebar-text);}
+  .sb-btn.sv{background:var(--accent);border-color:var(--accent);color:white;}
+  .sb-btn.sv:hover{background:var(--accent2);}
+  .sb-btn.sv.unsaved{background:var(--red);border-color:var(--red);}
+  /* ── 메인 영역 ── */
+  .main-wrap{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;}
+  .top-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:50px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(28,35,51,.05);}
+  .tb-title{font-size:14px;font-weight:600;color:var(--text);flex:1;}
+  @media(max-width:768px){
+    .sidebar{width:100%;height:54px;flex-direction:row;position:fixed;top:auto;bottom:0;border-right:none;border-top:1px solid var(--sidebar-border);}
+    .sb-logo,.sb-foot{display:none;}
+    .sb-nav{flex-direction:row;display:flex;align-items:center;overflow-x:auto;padding:4px 6px;}
+    .sb-sec{display:none;}
+    .sb-item{flex-direction:column;gap:1px;font-size:9px;padding:5px 10px;min-width:50px;}
+    .main-wrap{margin-left:0;margin-bottom:54px;}
+    .app-body{padding:14px 12px !important;}
+  }
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
@@ -379,7 +421,7 @@
 </div>
 
 <!-- LOGIN SCREEN -->
-<div id="login-screen" style="display:none;min-height:100vh;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+<div id="login-screen" style="display:none;min-height:100vh;background:var(--sidebar-bg2);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow2);width:100%;max-width:400px;padding:40px;text-align:center;">
     <div style="font-family:'Noto Serif KR','Georgia',serif;font-size:28px;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;">📑 Daily</div>
     <div style="font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text);">일일 업무 관리</div>
@@ -394,29 +436,38 @@
 
 </div>
 <!-- MAIN APP -->
-<div id="main-app" style="display:none;">
-  <header class="app-header">
-    <div class="app-logo">📑 Daily</div>
-    <nav class="header-nav">
-      <button class="nav-btn active" onclick="showView('today')">오늘</button>
-      <button class="nav-btn" onclick="showView('calendar')">캘린더</button>
-      <button class="nav-btn" onclick="showView('history')">기록</button>
-      <button class="nav-btn" onclick="showView('stats')">통계</button>
-      <button class="nav-btn" onclick="showView('recurring')">반복업무</button>
-      <button class="nav-btn" id="admin-nav-btn" onclick="showView('admin')" style="display:none;background:var(--red-soft);color:var(--red);border:1px solid var(--red);">👑 관리자</button>
+<div id="main-app" style="display:none;width:100%;">
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">📋</div>
+      <div><div class="sb-logo-text">Daily</div><div class="sb-logo-sub">업무관리</div></div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-sec">메뉴</div>
+      <button class="sb-item active" onclick="showView('today')"><span class="sb-ic">📅</span>오늘</button>
+      <button class="sb-item" onclick="showView('calendar')"><span class="sb-ic">🗓</span>캘린더</button>
+      <button class="sb-item" onclick="showView('history')"><span class="sb-ic">📂</span>기록</button>
+      <button class="sb-item" onclick="showView('stats')"><span class="sb-ic">📊</span>통계</button>
+      <button class="sb-item" onclick="showView('recurring')"><span class="sb-ic">🔁</span>반복업무</button>
+      <button class="sb-item adm" id="admin-nav-btn" onclick="showView('admin')" style="display:none;"><span class="sb-ic">👑</span>관리자</button>
     </nav>
-    <div class="header-right">
-      <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">연결됨</span></div>
-      <button id="manual-save-btn" onclick="manualSave()" style="padding:4px 12px;border:1px solid var(--border2);border-radius:10px;background:transparent;font-size:11px;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;white-space:nowrap;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">💾 저장</button>
-      <div style="width:1px;height:16px;background:var(--border2);margin:0 4px;"></div>
-      <button onclick="openDownloadModal()" style="padding:4px 12px;border:1px solid var(--border2);border-radius:10px;background:transparent;font-size:11px;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;white-space:nowrap;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">📥 주간보고</button>
-      <div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;">
-        <span id="user-email" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-        <button onclick="signOut()" style="padding:3px 9px;border:1px solid var(--border2);border-radius:10px;background:transparent;font-size:11px;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">로그아웃</button>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sb-avatar">?</div>
+        <div class="sb-email-txt" id="user-email"></div>
+      </div>
+      <div class="sb-btns">
+        <button class="sb-btn sv" id="manual-save-btn" onclick="manualSave()">💾 저장</button>
+        <button class="sb-btn" onclick="openDownloadModal()">📥 주간보고</button>
+        <button class="sb-btn" onclick="signOut()">로그아웃</button>
       </div>
     </div>
-  </header>
-
+  </aside>
+  <div class="main-wrap">
+    <div class="top-bar">
+      <div class="tb-title" id="tb-title">오늘의 업무</div>
+      <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">연결됨</span></div>
+    </div>
   <main class="app-body">
 
     <!-- TODAY -->
@@ -439,7 +490,7 @@
       </div>
       <div class="section-card">
         <div class="section-head"><h3>📌 주요 일정</h3></div>
-        <textarea class="agenda-input" id="agenda-inp" placeholder="오늘의 주요 일정을 입력하세요... (Shift+Enter로 줄바꿈)" onblur="saveField('agenda')" oninput="markUnsaved()" rows="2" style="resize:none;line-height:1.6;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"></textarea>
+        <textarea class="agenda-input" id="agenda-inp" placeholder="오늘의 주요 일정을 입력하세요... (Enter로 줄바꿈)" onblur="saveField('agenda')" oninput="markUnsaved()" rows="2" style="resize:none;line-height:1.6;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"></textarea>
       </div>
       <div class="section-card">
         <div class="section-head">
@@ -470,7 +521,7 @@
       </div>
       <div class="section-card">
         <div class="section-head"><h3>💬 진행 특이사항</h3></div>
-        <textarea class="memo-ta" id="memo-inp" placeholder="이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')" oninput="markUnsaved()"></textarea>
+        <textarea class="memo-ta" id="memo-inp" placeholder="미진행 사항 / 이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')" oninput="markUnsaved()"></textarea>
       </div>
     </div>
 
@@ -774,6 +825,7 @@
     </div>
 
   </main>
+  </div>
 </div>
 
 <!-- 주간보고 다운로드 모달 -->
@@ -1080,6 +1132,8 @@ function showMainApp(){
   const email=currentSession?.user?.email||'';
   const emailEl=document.getElementById('user-email');
   if(emailEl)emailEl.textContent=email;
+  const avEl=document.getElementById('sb-avatar');
+  if(avEl)avEl.textContent=(email[0]||'?').toUpperCase();
 }
 
 /* ─ CACHE ─ */
@@ -1312,15 +1366,7 @@ function setSyncStatus(s){
 function updateUnsavedIndicator(){
   const btn=document.getElementById('manual-save-btn');
   if(!btn)return;
-  if(_unsavedChanges){
-    btn.textContent='💾 저장 필요';
-    btn.style.borderColor='var(--red)';
-    btn.style.color='var(--red)';
-  } else {
-    btn.textContent='💾 저장';
-    btn.style.borderColor='';
-    btn.style.color='';
-  }
+  if(_unsavedChanges){btn.textContent='💾 저장 필요';btn.classList.add('unsaved');}else{btn.textContent='💾 저장';btn.classList.remove('unsaved');}
 }
 
 /* ═══════════════════════════════════════
@@ -4090,14 +4136,15 @@ async function removeAdmin(id,email){
    VIEW SWITCHING
 ═══════════════════════════════════════ */
 function showView(v){
+  const _T={today:'오늘의 업무',calendar:'캘린더',history:'기록',stats:'통계',recurring:'반복업무',admin:'관리자'};const _tb=document.getElementById('tb-title');if(_tb&&_T[v])_tb.textContent=_T[v];
   console.log('showView:', v);
   // 마지막 탭 저장 (새로고침 시 복원)
   try{sessionStorage.setItem('lastView',v);}catch{}
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   const idx={today:0,calendar:1,history:2,stats:3,recurring:4,admin:5}[v];
-  document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  document.querySelectorAll('.sb-item')[idx].classList.add('active');
   if(v==='calendar')renderCalendar();
   if(v==='history'){histFullData=[];renderHistory();}
   if(v==='recurring'){

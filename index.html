@@ -133,7 +133,7 @@
   .pri-select{border:1px solid var(--border2);border-radius:var(--r2);padding:7px 7px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text2);background:var(--bg);outline:none;cursor:pointer}
   .add-btn{padding:7px 14px;background:var(--accent);color:white;border:none;border-radius:var(--r2);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .2s}
   .add-btn:hover{background:var(--accent2)}
-  .memo-ta{width:100%;border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--text);resize:none;outline:none;padding:13px 18px;min-height:72px;line-height:1.7}
+  .memo-ta{width:100%;border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--text);resize:none;outline:none;padding:13px 18px;min-height:120px;line-height:1.7}
   .memo-ta::placeholder{color:var(--text3)}
 
   /* ── HISTORY ── */
@@ -701,7 +701,7 @@
       </div>
       <div class="section-card">
         <div class="section-head"><h3>💬 진행 특이사항</h3></div>
-        <textarea class="memo-ta" id="memo-inp" placeholder="이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')" oninput="markUnsaved()"></textarea>
+        <textarea class="memo-ta" id="memo-inp" rows="4" placeholder="이슈사항 / 확인사항 / 개선점 등" onblur="saveField('memo')" oninput="markUnsaved()"></textarea>
       </div>
     </div>
 

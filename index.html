@@ -1780,7 +1780,7 @@ function renderTasks(){
         <td colspan="3">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <select class="cat-select" id="ei-cat">
-              ${getCategoryOptionsHtml(t.category||'')}
+              ${getCategoryOptionsHtml(t.category||'', t.categoryPart||'')}
             </select>
             <input class="edit-input" id="ei-name" value="${esc(t.name)}" placeholder="업무명" style="flex:1;min-width:120px;">
             <select class="pri-select" id="ei-pri">
@@ -1832,9 +1832,11 @@ async function saveEdit(i){
   if(!name)return;
   const targetDate=document.getElementById('ei-date')?.value||curDate;
 
+  const editCatMeta=getSelectedCategoryMeta('ei-cat');
   const task={
     ...curDay.tasks[i],
-    category:document.getElementById('ei-cat').value,
+    category:editCatMeta.category,
+    categoryPart:editCatMeta.categoryPart||'',
     name,
     priority:parseInt(document.getElementById('ei-pri').value),
     note:document.getElementById('ei-note').value.trim(),
@@ -1920,12 +1922,13 @@ async function renderStatCards(){
    TASK ACTIONS
 ═══════════════════════════════════════ */
 async function addTask(){
-  const cat=document.getElementById('nc').value;
+  const catMeta=getSelectedCategoryMeta('nc');
+  const cat=catMeta.category;
   const name=document.getElementById('nt').value.trim();
   const priority=parseInt(document.getElementById('np').value);
   if(!name)return;
   curDay.tasks=curDay.tasks||[];
-  curDay.tasks.push({category:cat,name,priority,done:false,note:'',minutesTitle:'',minutesDatetime:'',minutesAttendees:'',minutesContent:'',minutesAction:''});
+  curDay.tasks.push({category:cat,categoryPart:catMeta.categoryPart||'',name,priority,done:false,note:'',minutesTitle:'',minutesDatetime:'',minutesAttendees:'',minutesContent:'',minutesAction:''});
   document.getElementById('nc').value='';document.getElementById('nt').value='';
   renderTasks();renderStatCards();await saveCurrent();
 }
@@ -2829,18 +2832,31 @@ async function checkAndCarryOver(){
 /* ═══════════════════════════════════════
    구분 목록 (Categories)
 ═══════════════════════════════════════ */
-function getCategoryOptionsHtml(selected=''){
+function getCategoryOptionsHtml(selected='', selectedPart=''){
   const rows=categoriesData||[];
   const hasMultiParts=(currentUserParts||[]).length>1;
   const safeSelected=String(selected||'');
+  const safeSelectedPart=String(selectedPart||'');
+  const isSelected=(name,part)=>{
+    if(name!==safeSelected) return false;
+    if(safeSelectedPart) return String(part||'공통')===safeSelectedPart;
+    return true;
+  };
 
   if(!rows.length){
     return `<option value="">구분</option>`;
   }
 
   if(!hasMultiParts){
-    const names=[...new Set(rows.map(r=>r.name).filter(Boolean))];
-    return `<option value="">구분</option>` + names.map(name=>`<option value="${esc(name)}" ${name===safeSelected?'selected':''}>${esc(name)}</option>`).join('');
+    const uniq=[];
+    const seenNames=new Set();
+    rows.forEach(r=>{
+      if(r.name && !seenNames.has(r.name)){
+        seenNames.add(r.name);
+        uniq.push({name:r.name,part:r.part||'공통'});
+      }
+    });
+    return `<option value="">구분</option>` + uniq.map(r=>`<option value="${esc(r.name)}" data-part="${esc(r.part||'공통')}" ${isSelected(r.name,r.part)?'selected':''}>${esc(r.name)}</option>`).join('');
   }
 
   const groupOrder=['공통', ...(currentUserParts||[])];
@@ -2852,23 +2868,33 @@ function getCategoryOptionsHtml(selected=''){
     html += `<optgroup label="${esc(part)}">`;
     partRows.forEach(r=>{
       seen.add(`${part}__${r.name}`);
-      html += `<option value="${esc(r.name)}" ${r.name===safeSelected?'selected':''}>${esc(r.name)}</option>`;
+      html += `<option value="${esc(r.name)}" data-part="${esc(r.part||'공통')}" ${isSelected(r.name,r.part)?'selected':''}>${esc(r.name)}</option>`;
     });
     html += `</optgroup>`;
   });
 
   const etcRows=rows.filter(r=>!groupOrder.includes(r.part) && r.name);
   if(etcRows.length){
-    html += `<optgroup label="기타">` + etcRows.map(r=>`<option value="${esc(r.name)}" ${r.name===safeSelected?'selected':''}>${esc(r.name)}</option>`).join('') + `</optgroup>`;
+    html += `<optgroup label="기타">` + etcRows.map(r=>`<option value="${esc(r.name)}" data-part="${esc(r.part||'공통')}" ${isSelected(r.name,r.part)?'selected':''}>${esc(r.name)}</option>`).join('') + `</optgroup>`;
   }
   return html;
+}
+
+function getSelectedCategoryMeta(selectId){
+  const sel=typeof selectId==='string'?document.getElementById(selectId):selectId;
+  if(!sel) return {category:'', categoryPart:''};
+  const opt=sel.options[sel.selectedIndex];
+  return {
+    category: sel.value||'',
+    categoryPart: opt ? (opt.dataset.part||'') : ''
+  };
 }
 
 function renderCategoryOptions(){
   const sel=document.getElementById('nc');
   if(!sel) return;
   const current=sel.value||'';
-  sel.innerHTML=getCategoryOptionsHtml(current);
+  sel.innerHTML=getCategoryOptionsHtml(current, '');
   if(categoriesList.includes(current)) sel.value=current;
 }
 
@@ -3119,12 +3145,24 @@ function getRecDesc(r){
 }
 function getPriIcon(p){return['','🟢','🟡','🟠','🔴'][p]||'🟡';}
 
-function renderRecurringCategoryOptions(selected=''){
+function renderRecurringCategoryOptions(selected='', selectedPart=''){
   const sel=document.getElementById('r-category');
   if(!sel) return;
-  const html=getCategoryOptionsHtml(selected||'').replace('<option value="">구분</option>','<option value="">구분 선택</option>');
+  const html=getCategoryOptionsHtml(selected||'', selectedPart||'').replace('<option value="">구분</option>','<option value="">구분 선택</option>');
   sel.innerHTML=html;
-  if(selected) sel.value=selected;
+
+  if(!selected) return;
+
+  const targetPart=(selectedPart||'').trim();
+  const opts=[...sel.options];
+
+  let match=opts.find(o => (o.value||'')===selected && (o.dataset.part||'')===targetPart);
+  if(!match && targetPart){
+    match=opts.find(o => (o.value||'')===selected);
+  }
+  if(match){
+    sel.selectedIndex=opts.indexOf(match);
+  }
 }
 
 /* ── 모달 열기/닫기 ── */
@@ -3137,14 +3175,14 @@ async function openRecurringModal(idx){
   const list=await loadRecurring();
   if(idx!==undefined){
     const r=list[idx]||{};
-    renderRecurringCategoryOptions(r.category||'');
+    renderRecurringCategoryOptions(r.category||'', r.categoryPart||'');
     document.getElementById('r-name').value=r.name||'';
     document.getElementById('r-priority').value=r.priority||3;
     document.getElementById('r-type').value=r.type||'weekly';
     document.getElementById('r-monthday').value=r.monthday||'';
     document.querySelectorAll('.r-dow').forEach(cb=>{cb.checked=(r.dows||[]).includes(parseInt(cb.value));});
   } else {
-    renderRecurringCategoryOptions('');
+    renderRecurringCategoryOptions('', '');
     document.getElementById('r-name').value='';
     document.getElementById('r-priority').value=3;
     document.getElementById('r-type').value='weekly';
@@ -3167,8 +3205,10 @@ async function saveRecurring(){
   const name=document.getElementById('r-name').value.trim();
   if(!name){toast('업무 내용을 입력해 주세요');return;}
   const type=document.getElementById('r-type').value;
+  const rCatMeta=getSelectedCategoryMeta('r-category');
   const rec={
-    category:(document.getElementById('r-category').value||'').trim(),
+    category:(rCatMeta.category||'').trim(),
+    categoryPart:rCatMeta.categoryPart||'',
     name,
     priority:parseInt(document.getElementById('r-priority').value),
     type,
@@ -3254,6 +3294,7 @@ async function injectRecurringTasks(){
     if(!existingNames.has(r.name)){
       dayData.tasks.push({
         category:r.category||'',
+        categoryPart:r.categoryPart||'',
         name:r.name,
         priority:r.priority||3,
         done:false,
@@ -3282,7 +3323,7 @@ async function injectRecurringToNextDate(rec){
   const already=dayData.tasks.some(t=>t.isRecurring&&t.name===rec.name);
   if(already)return;
   dayData.tasks.push({
-    category:rec.category||'',name:rec.name,priority:rec.priority||3,
+    category:rec.category||'',categoryPart:rec.categoryPart||'',name:rec.name,priority:rec.priority||3,
     done:false,note:'',isRecurring:true,
     minutesTitle:'',minutesDatetime:'',minutesAttendees:'',minutesContent:'',minutesAction:''
   });
@@ -3706,6 +3747,7 @@ let adminPeriod='week';
 let adminDateFrom=null;
 let adminDateTo=null;
 let adminAllData=[]; // {email, user_id, days:[{date,data}]}
+let adminRecurringMap={}; // { user_id: [recurringTask,...] }
 let teamsList=[]; // DB에 등록된 팀 목록
 
 /* ── 관리자 여부 확인 ── */
@@ -3793,6 +3835,7 @@ async function loadAdminData(){
   showLoading('전체 데이터 불러오는 중...');
   // 팀 목록 로드 (슈퍼 관리자만)
   if(isSuperAdmin())await loadTeams();
+  await loadAllCategories();
   const {from,to}=getAdminDateRange();
   try{
     // 1) 사용자 목록 (security definer 함수로 호출)
@@ -3815,13 +3858,14 @@ async function loadAdminData(){
     // 3) 기간 내 daily_tasks
     // 팀 관리자: 담당 팀 user_id만 필터해서 가져옴
     let taskUrl=`${SB_URL}/rest/v1/daily_tasks?date=gte.${from}&date=lte.${to}&select=user_id,date,data&order=date.asc`;
+    let scopedUserIds=[];
     if(!isSuperAdmin()&&adminAssignedPart){
       // 담당 파트 프로필의 user_id 목록 추출
-      const partUserIds=(profiles||[])
+      scopedUserIds=(profiles||[])
         .filter(p=>hasPart(p.part,adminAssignedPart))
         .map(p=>p.user_id);
-      if(partUserIds.length>0){
-        taskUrl+=`&user_id=in.(${partUserIds.join(',')})`;
+      if(scopedUserIds.length>0){
+        taskUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
       }
       // 없으면 빈 결과 (전체 조회 안 함)
     }
@@ -3829,11 +3873,30 @@ async function loadAdminData(){
     const allTasks=await taskRes.json();
     console.log('admin tasks:', allTasks?.length);
 
+    // 4) 반복업무 원본 로드 — isRecurring 업무의 categoryPart 보정용
+    adminRecurringMap={};
+    try{
+      let recurringUrl=`${SB_URL}/rest/v1/recurring_tasks?select=user_id,data`;
+      if(scopedUserIds.length>0){
+        recurringUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
+      }
+      const recurringRes=await fetchWithAuth(recurringUrl);
+      const recurringRows=await recurringRes.json();
+      (recurringRows||[]).forEach(row=>{
+        adminRecurringMap[row.user_id]=Array.isArray(row.data)?row.data:[];
+      });
+    }catch(recErr){
+      console.warn('admin recurring load failed:', recErr);
+      adminRecurringMap={};
+    }
+
     hideLoading();
     const tasksByUser={};
     (allTasks||[]).forEach(row=>{
       if(!tasksByUser[row.user_id])tasksByUser[row.user_id]=[];
-      tasksByUser[row.user_id].push({date:row.date,data:row.data});
+      const normalizedData=row.data||{};
+      normalizedData.tasks=(normalizedData.tasks||[]).map(t=>normalizeTaskForAdmin({...t}, row.user_id));
+      tasksByUser[row.user_id].push({date:row.date,data:normalizedData});
     });
 
     let allUsers=(users||[]).map(u=>({
@@ -3915,6 +3978,40 @@ function getCategoryMappedParts(category){
     .map(c=>c.part||'공통'))];
 }
 
+function resolveStoredTaskCategoryPart(task){
+  const explicitPart=String(task?.categoryPart||'').trim();
+  if(explicitPart) return explicitPart;
+  const mappedParts=getCategoryMappedParts(task?.category||'');
+  if(!mappedParts.length) return '';
+  const nonCommon=mappedParts.filter(p=>p!=='공통');
+  if(nonCommon.length===1) return nonCommon[0];
+  if(nonCommon.length===0 && mappedParts.includes('공통')) return '공통';
+  return '';
+}
+
+function getRecurringCategoryPartForAdmin(userId, task){
+  if(!userId || !task) return '';
+  const list=adminRecurringMap[userId] || [];
+  if(!list.length) return '';
+  const matches=list.filter(r=>
+    String(r?.name||'').trim()===String(task?.name||'').trim() &&
+    String(r?.category||'').trim()===String(task?.category||'').trim()
+  );
+  if(matches.length===1) return String(matches[0]?.categoryPart||'').trim();
+  const exactPartMatches=matches.map(r=>String(r?.categoryPart||'').trim()).filter(Boolean);
+  return exactPartMatches.length===1 ? exactPartMatches[0] : '';
+}
+
+function normalizeTaskForAdmin(task, userId){
+  if(!task || typeof task!=='object') return task;
+  if(!task.categoryPart){
+    const recurringPart = task.isRecurring ? getRecurringCategoryPartForAdmin(userId, task) : '';
+    const resolvedPart = recurringPart || resolveStoredTaskCategoryPart(task);
+    if(resolvedPart) task.categoryPart=resolvedPart;
+  }
+  return task;
+}
+
 function getScopedPartsForUser(user){
   if(isSuperAdmin()){
     if(adminSuperPartFilter) return [adminSuperPartFilter];
@@ -3925,23 +4022,34 @@ function getScopedPartsForUser(user){
   return parsePartValues(user?.part);
 }
 
+function getTaskScopedParts(task, user){
+  const explicitPart=String(task?.categoryPart||'').trim();
+  if(explicitPart) return [explicitPart];
+  const mappedParts=getCategoryMappedParts(task?.category||'');
+  if(mappedParts.length) return mappedParts;
+  // 구분명은 있으나 파트 매핑을 못 찾는 경우에는 사용자 다중 파트 전체에 억지로 매핑하지 않음
+  if(String(task?.category||'').trim()) return [];
+  // 구분이 아예 없는 업무는 공통으로 취급
+  return ['공통'];
+}
+
 function taskMatchesAdminScope(task, user){
   const scopedParts=getScopedPartsForUser(user);
   if(!scopedParts.length) return true;
-  const mappedParts=getCategoryMappedParts(task?.category||'');
-  if(!mappedParts.length) return true;
-  if(mappedParts.includes('공통')) return true;
-  return mappedParts.some(p=>scopedParts.includes(p));
+  const taskParts=getTaskScopedParts(task, user);
+  if(!taskParts.length) return false;
+  if(taskParts.includes('공통')) return true;
+  return taskParts.some(p=>scopedParts.includes(p));
 }
 
 function getTeamManagerTaskGroup(task, user){
   if(adminAssignedPart) return adminAssignedPart;
   if(adminPartFilter) return adminPartFilter;
-  const mappedParts=getCategoryMappedParts(task?.category||'').filter(p=>p!=='공통');
-  if(!mappedParts.length) return '공통';
+  const taskParts=getTaskScopedParts(task, user).filter(p=>p!=='공통');
+  if(!taskParts.length) return '(미분류)';
   const userParts=parsePartValues(user?.part);
-  const matched=mappedParts.find(p=>userParts.includes(p)) || mappedParts[0];
-  return matched || '공통';
+  const matched=taskParts.find(p=>userParts.includes(p)) || taskParts[0];
+  return matched || '(미분류)';
 }
 
 function renderAdminTeamFilter(){

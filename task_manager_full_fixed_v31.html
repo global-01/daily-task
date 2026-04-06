@@ -3735,6 +3735,7 @@ let adminPeriod='week';
 let adminDateFrom=null;
 let adminDateTo=null;
 let adminAllData=[]; // {email, user_id, days:[{date,data}]}
+let adminRecurringMap={}; // { user_id: [recurringTask,...] }
 let teamsList=[]; // DB에 등록된 팀 목록
 
 /* ── 관리자 여부 확인 ── */
@@ -3822,6 +3823,7 @@ async function loadAdminData(){
   showLoading('전체 데이터 불러오는 중...');
   // 팀 목록 로드 (슈퍼 관리자만)
   if(isSuperAdmin())await loadTeams();
+  await loadAllCategories();
   const {from,to}=getAdminDateRange();
   try{
     // 1) 사용자 목록 (security definer 함수로 호출)
@@ -3844,13 +3846,14 @@ async function loadAdminData(){
     // 3) 기간 내 daily_tasks
     // 팀 관리자: 담당 팀 user_id만 필터해서 가져옴
     let taskUrl=`${SB_URL}/rest/v1/daily_tasks?date=gte.${from}&date=lte.${to}&select=user_id,date,data&order=date.asc`;
+    let scopedUserIds=[];
     if(!isSuperAdmin()&&adminAssignedPart){
       // 담당 파트 프로필의 user_id 목록 추출
-      const partUserIds=(profiles||[])
+      scopedUserIds=(profiles||[])
         .filter(p=>hasPart(p.part,adminAssignedPart))
         .map(p=>p.user_id);
-      if(partUserIds.length>0){
-        taskUrl+=`&user_id=in.(${partUserIds.join(',')})`;
+      if(scopedUserIds.length>0){
+        taskUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
       }
       // 없으면 빈 결과 (전체 조회 안 함)
     }
@@ -3858,11 +3861,30 @@ async function loadAdminData(){
     const allTasks=await taskRes.json();
     console.log('admin tasks:', allTasks?.length);
 
+    // 4) 반복업무 원본 로드 — isRecurring 업무의 categoryPart 보정용
+    adminRecurringMap={};
+    try{
+      let recurringUrl=`${SB_URL}/rest/v1/recurring_tasks?select=user_id,data`;
+      if(scopedUserIds.length>0){
+        recurringUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
+      }
+      const recurringRes=await fetchWithAuth(recurringUrl);
+      const recurringRows=await recurringRes.json();
+      (recurringRows||[]).forEach(row=>{
+        adminRecurringMap[row.user_id]=Array.isArray(row.data)?row.data:[];
+      });
+    }catch(recErr){
+      console.warn('admin recurring load failed:', recErr);
+      adminRecurringMap={};
+    }
+
     hideLoading();
     const tasksByUser={};
     (allTasks||[]).forEach(row=>{
       if(!tasksByUser[row.user_id])tasksByUser[row.user_id]=[];
-      tasksByUser[row.user_id].push({date:row.date,data:row.data});
+      const normalizedData=row.data||{};
+      normalizedData.tasks=(normalizedData.tasks||[]).map(t=>normalizeTaskForAdmin({...t}, row.user_id));
+      tasksByUser[row.user_id].push({date:row.date,data:normalizedData});
     });
 
     let allUsers=(users||[]).map(u=>({
@@ -3944,6 +3966,40 @@ function getCategoryMappedParts(category){
     .map(c=>c.part||'공통'))];
 }
 
+function resolveStoredTaskCategoryPart(task){
+  const explicitPart=String(task?.categoryPart||'').trim();
+  if(explicitPart) return explicitPart;
+  const mappedParts=getCategoryMappedParts(task?.category||'');
+  if(!mappedParts.length) return '';
+  const nonCommon=mappedParts.filter(p=>p!=='공통');
+  if(nonCommon.length===1) return nonCommon[0];
+  if(nonCommon.length===0 && mappedParts.includes('공통')) return '공통';
+  return '';
+}
+
+function getRecurringCategoryPartForAdmin(userId, task){
+  if(!userId || !task) return '';
+  const list=adminRecurringMap[userId] || [];
+  if(!list.length) return '';
+  const matches=list.filter(r=>
+    String(r?.name||'').trim()===String(task?.name||'').trim() &&
+    String(r?.category||'').trim()===String(task?.category||'').trim()
+  );
+  if(matches.length===1) return String(matches[0]?.categoryPart||'').trim();
+  const exactPartMatches=matches.map(r=>String(r?.categoryPart||'').trim()).filter(Boolean);
+  return exactPartMatches.length===1 ? exactPartMatches[0] : '';
+}
+
+function normalizeTaskForAdmin(task, userId){
+  if(!task || typeof task!=='object') return task;
+  if(!task.categoryPart){
+    const recurringPart = task.isRecurring ? getRecurringCategoryPartForAdmin(userId, task) : '';
+    const resolvedPart = recurringPart || resolveStoredTaskCategoryPart(task);
+    if(resolvedPart) task.categoryPart=resolvedPart;
+  }
+  return task;
+}
+
 function getScopedPartsForUser(user){
   if(isSuperAdmin()){
     if(adminSuperPartFilter) return [adminSuperPartFilter];
@@ -3959,14 +4015,17 @@ function getTaskScopedParts(task, user){
   if(explicitPart) return [explicitPart];
   const mappedParts=getCategoryMappedParts(task?.category||'');
   if(mappedParts.length) return mappedParts;
-  return parsePartValues(user?.part);
+  // 구분명은 있으나 파트 매핑을 못 찾는 경우에는 사용자 다중 파트 전체에 억지로 매핑하지 않음
+  if(String(task?.category||'').trim()) return [];
+  // 구분이 아예 없는 업무는 공통으로 취급
+  return ['공통'];
 }
 
 function taskMatchesAdminScope(task, user){
   const scopedParts=getScopedPartsForUser(user);
   if(!scopedParts.length) return true;
   const taskParts=getTaskScopedParts(task, user);
-  if(!taskParts.length) return true;
+  if(!taskParts.length) return false;
   if(taskParts.includes('공통')) return true;
   return taskParts.some(p=>scopedParts.includes(p));
 }
@@ -3975,10 +4034,10 @@ function getTeamManagerTaskGroup(task, user){
   if(adminAssignedPart) return adminAssignedPart;
   if(adminPartFilter) return adminPartFilter;
   const taskParts=getTaskScopedParts(task, user).filter(p=>p!=='공통');
-  if(!taskParts.length) return '공통';
+  if(!taskParts.length) return '(미분류)';
   const userParts=parsePartValues(user?.part);
   const matched=taskParts.find(p=>userParts.includes(p)) || taskParts[0];
-  return matched || '공통';
+  return matched || '(미분류)';
 }
 
 function renderAdminTeamFilter(){

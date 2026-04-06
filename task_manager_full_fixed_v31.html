@@ -4015,12 +4015,49 @@ function getPartDisplay(partValue){
   return parts.join(', ');
 }
 
+function getPartOrderValue(part){
+  const p=String(part||'').trim();
+  if(p==='글로벌') return 0;
+  if(p==='일본') return 1;
+  if(p==='신사업') return 2;
+  if(p==='공통') return 3;
+  if(!p || p==='(파트 미지정)' || p==='미지정') return 99;
+  return 50;
+}
+
+function compareCategoryName(a,b){
+  const aa=String(a||'').trim()||'(미분류)';
+  const bb=String(b||'').trim()||'(미분류)';
+  const aUn=aa==='(미분류)'||aa==='미분류';
+  const bUn=bb==='(미분류)'||bb==='미분류';
+  if(aUn && !bUn) return 1;
+  if(!aUn && bUn) return -1;
+  return aa.localeCompare(bb,'ko');
+}
+
+function compareAdminGroupLabel(a,b){
+  const aa=String(a||'');
+  const bb=String(b||'');
+  const [aTeam,aPartRaw=''] = aa.split(' · ');
+  const [bTeam,bPartRaw=''] = bb.split(' · ');
+  if(aa.includes(' · ') || bb.includes(' · ')){
+    const teamCmp=aTeam.localeCompare(bTeam,'ko');
+    if(teamCmp!==0) return teamCmp;
+    const partCmp=getPartOrderValue(aPartRaw)-getPartOrderValue(bPartRaw);
+    if(partCmp!==0) return partCmp;
+    return aa.localeCompare(bb,'ko');
+  }
+  const partCmp=getPartOrderValue(aa)-getPartOrderValue(bb);
+  if(partCmp!==0) return partCmp;
+  return aa.localeCompare(bb,'ko');
+}
+
 function getOrderedGroupKeys(groupObj, preferred=[]){
   const keys=Object.keys(groupObj||{});
   const preferredSet=new Set(preferred);
   const ordered=[];
   preferred.forEach(k=>{ if(keys.includes(k)) ordered.push(k); });
-  const rest=keys.filter(k=>!preferredSet.has(k)).sort((a,b)=>a.localeCompare(b,'ko'));
+  const rest=keys.filter(k=>!preferredSet.has(k)).sort(compareAdminGroupLabel);
   return [...ordered, ...rest];
 }
 
@@ -4362,6 +4399,7 @@ async function renderAdminDashboard(from,to){
     if(d.date>today)return;
     (d.data?.tasks||[])
       .filter(t=>!t.done)
+      .filter(t=>!t.carriedFrom)
       .filter(t=>taskMatchesAdminScope(t,u))
       .forEach(t=>{
         undoneItems.push({
@@ -4396,7 +4434,12 @@ async function renderAdminDashboard(from,to){
     </div>`;
     getOrderedGroupKeys(undoneGroups,isSuperAdmin()?[]:['공통',...PARTS,'(파트 미지정)']).forEach(groupName=>{
       const items=(undoneGroups[groupName]||[])
-        .sort((a,b)=> a.category===b.category ? (a.date===b.date ? a.name.localeCompare(b.name,'ko') : a.date.localeCompare(b.date)) : (a.category||'').localeCompare((b.category||''),'ko'));
+        .sort((a,b)=> {
+          const catCmp=compareCategoryName(a.category||'(미분류)', b.category||'(미분류)');
+          if(catCmp!==0) return catCmp;
+          if(a.date!==b.date) return a.date.localeCompare(b.date);
+          return a.name.localeCompare(b.name,'ko');
+        });
       if(!items.length)return;
       undoneHtml+=`<div class="admin-group-card"><div class="admin-group-head"><div><div class="admin-group-title">${esc(groupName)}</div><div class="admin-group-sub">${items.length}개</div></div></div><div class="admin-simple-list">`;
       items.slice(0,12).forEach(item=>{
@@ -4485,43 +4528,11 @@ async function renderAdminDashboard(from,to){
 
   const userListEl=document.getElementById('admin-user-list');
   if(!isSuperAdmin()){
-    const partOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
-    userListEl.innerHTML=`
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원의 파트를 다중 선택으로 설정할 수 있어요.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:var(--surface2);">
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">파트</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">기록 일수</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">저장</th>
-        </tr></thead>
-        <tbody>
-          ${adminAllData.map(u=>`
-            <tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 10px;font-weight:500;">${esc(u.name)}</td>
-              <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
-              <td style="padding:6px 10px;text-align:center;">
-                <select id="ppart_${u.user_id}" multiple size="3" style="min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
-                  ${partOpts}
-                </select>
-              </td>
-              <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.total_days}일</td>
-              <td style="padding:6px 10px;text-align:center;"><button onclick="saveUserProfile('${u.user_id}','${esc(u.email)}')" style="padding:4px 10px;background:var(--accent);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">저장</button></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
-    adminAllData.forEach(u=>{
-      const sel=document.getElementById('ppart_'+u.user_id);
-      if(sel){
-        const parts=parsePartValues(u.part);
-        [...sel.options].forEach(opt=>{opt.selected=parts.includes(opt.value);});
-      }
-    });
     const settingsSec=document.getElementById('admin-settings-section');
     const userListSec=document.getElementById('admin-user-list-section');
+    if(userListEl) userListEl.innerHTML='';
     if(settingsSec)settingsSec.style.display='none';
-    if(userListSec)userListSec.style.display='block';
+    if(userListSec)userListSec.style.display='none';
   } else {
     const teamSelectOpts=`<option value="">미지정</option>`+teamsList.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
     const superPartOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
@@ -4585,6 +4596,10 @@ async function renderAdminDashboard(from,to){
 
 /* ── 사용자 프로필 저장 ── */
 async function saveUserProfile(userId,email){
+  if(!isSuperAdmin()){
+    toast('슈퍼 관리자만 사용자 목록의 팀/파트를 설정할 수 있어요');
+    return;
+  }
   const name=document.getElementById('pname_'+userId)?.value||'';
   const team=document.getElementById('pteam_'+userId)?.value||'';
   const partSelect=document.getElementById('ppart_'+userId);
@@ -4691,7 +4706,7 @@ function renderAdminUserTasks(){
     getOrderedGroupKeys(groupMap, preferredGroups).forEach(group=>{
       const info=groupMap[group];
       if(!info) return;
-      const topCats=Object.entries(info.catMap).sort((a,b)=> b[1]===a[1] ? a[0].localeCompare(b[0],'ko') : b[1]-a[1]);
+      const topCats=Object.entries(info.catMap).sort((a,b)=> b[1]===a[1] ? compareCategoryName(a[0],b[0]) : b[1]-a[1]);
       const topUsers=Object.entries(info.userMap).sort((a,b)=> b[1]-a[1]);
       const doneCnt=info.items.filter(v=>v.task.done).length;
       html+=`<div class="admin-group-card"><div class="admin-group-head"><div><div class="admin-group-title">${esc(group)}</div><div class="admin-group-sub">업무 ${info.items.length}건 · 사용자 ${Object.keys(info.userMap).length}명</div></div><span class="admin-pill">한눈 요약</span></div><div class="admin-simple-list">
@@ -4715,10 +4730,35 @@ function renderAdminUserTasks(){
   }
 
   const sorters={
-    group:(a,b)=> a.group===b.group ? ((a.task.category||'').localeCompare((b.task.category||''),'ko') || a.date.localeCompare(b.date) || a.user.name.localeCompare(b.user.name,'ko')) : a.group.localeCompare(b.group,'ko'),
-    category:(a,b)=> ((a.task.category||'').localeCompare((b.task.category||''),'ko') || a.group.localeCompare(b.group,'ko') || a.date.localeCompare(b.date) || a.user.name.localeCompare(b.user.name,'ko')),
-    date:(a,b)=> a.date===b.date ? ((a.task.category||'').localeCompare((b.task.category||''),'ko') || a.user.name.localeCompare(b.user.name,'ko')) : a.date.localeCompare(b.date),
-    user:(a,b)=> a.user.name===b.user.name ? ((a.task.category||'').localeCompare((b.task.category||''),'ko') || a.date.localeCompare(b.date)) : a.user.name.localeCompare(b.user.name,'ko')
+    group:(a,b)=> {
+      const groupCmp=a.group===b.group ? 0 : compareAdminGroupLabel(a.group,b.group);
+      if(groupCmp!==0) return groupCmp;
+      const catCmp=compareCategoryName(a.task.category||'(미분류)', b.task.category||'(미분류)');
+      if(catCmp!==0) return catCmp;
+      if(a.date!==b.date) return a.date.localeCompare(b.date);
+      return a.user.name.localeCompare(b.user.name,'ko');
+    },
+    category:(a,b)=> {
+      const catCmp=compareCategoryName(a.task.category||'(미분류)', b.task.category||'(미분류)');
+      if(catCmp!==0) return catCmp;
+      const groupCmp=compareAdminGroupLabel(a.group,b.group);
+      if(groupCmp!==0) return groupCmp;
+      if(a.date!==b.date) return a.date.localeCompare(b.date);
+      return a.user.name.localeCompare(b.user.name,'ko');
+    },
+    date:(a,b)=> {
+      if(a.date!==b.date) return a.date.localeCompare(b.date);
+      const catCmp=compareCategoryName(a.task.category||'(미분류)', b.task.category||'(미분류)');
+      if(catCmp!==0) return catCmp;
+      return a.user.name.localeCompare(b.user.name,'ko');
+    },
+    user:(a,b)=> {
+      const userCmp=a.user.name===b.user.name ? 0 : a.user.name.localeCompare(b.user.name,'ko');
+      if(userCmp!==0) return userCmp;
+      const catCmp=compareCategoryName(a.task.category||'(미분류)', b.task.category||'(미분류)');
+      if(catCmp!==0) return catCmp;
+      return a.date.localeCompare(b.date);
+    }
   };
   entries.sort(sorters[sortMode]||sorters.group);
 
@@ -4730,7 +4770,13 @@ function renderAdminUserTasks(){
   });
 
   let html='';
-  Object.keys(grouped).forEach(key=>{
+  const orderedOuterKeys=Object.keys(grouped).sort((a,b)=>{
+    if(sortMode==='group') return compareAdminGroupLabel(a,b);
+    if(sortMode==='category') return compareCategoryName(a,b);
+    if(sortMode==='date') return a.localeCompare(b);
+    return a.localeCompare(b,'ko');
+  });
+  orderedOuterKeys.forEach(key=>{
     const arr=grouped[key];
     html+=`<div class="admin-group-card"><div class="admin-group-head"><div><div class="admin-group-title">${esc(key)}</div><div class="admin-group-sub">${arr.length}건</div></div><span class="admin-pill">${sortMode==='category'?'구분 묶음':sortMode==='date'?'날짜 묶음':sortMode==='user'?'사용자 묶음':'팀/파트 묶음'}</span></div>`;
     const byUser={};
@@ -4748,7 +4794,7 @@ function renderAdminUserTasks(){
         byCategory[c] ??= [];
         byCategory[c].push(e);
       });
-      Object.keys(byCategory).sort((a,b)=>a.localeCompare(b,'ko')).forEach(cat=>{
+      Object.keys(byCategory).sort(compareCategoryName).forEach(cat=>{
         const citems=byCategory[cat].sort((a,b)=> a.date===b.date ? (a.task.name||'').localeCompare((b.task.name||''),'ko') : a.date.localeCompare(b.date));
         html+=`<div class="admin-category-block"><div class="admin-category-title">${esc(cat)} · ${citems.length}건</div>`;
         citems.forEach(({date,data,task,group})=>{
@@ -4756,7 +4802,7 @@ function renderAdminUserTasks(){
           html+=`<div class="admin-simple-item">
             <div class="admin-simple-main">
               <div class="admin-simple-title">${task.carriedFrom?'🔄 ':''}${task.isRecurring?'🔁 ':''}${priIcon[task.priority]||''} ${esc(task.name)}</div>
-              <div class="admin-simple-meta">${date}${data?.agenda?' · '+agendaDisp(data.agenda):''} · ${esc(group)}</div>
+              <div class="admin-simple-meta">${date} · ${esc(group)}</div>
               ${noteShort?`<div class="admin-simple-meta">📎 ${esc(noteShort)}</div>`:''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">

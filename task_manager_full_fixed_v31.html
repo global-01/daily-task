@@ -3150,7 +3150,19 @@ function renderRecurringCategoryOptions(selected='', selectedPart=''){
   if(!sel) return;
   const html=getCategoryOptionsHtml(selected||'', selectedPart||'').replace('<option value="">구분</option>','<option value="">구분 선택</option>');
   sel.innerHTML=html;
-  if(selected) sel.value=selected;
+
+  if(!selected) return;
+
+  const targetPart=(selectedPart||'').trim();
+  const opts=[...sel.options];
+
+  let match=opts.find(o => (o.value||'')===selected && (o.dataset.part||'')===targetPart);
+  if(!match && targetPart){
+    match=opts.find(o => (o.value||'')===selected);
+  }
+  if(match){
+    sel.selectedIndex=opts.indexOf(match);
+  }
 }
 
 /* ── 모달 열기/닫기 ── */

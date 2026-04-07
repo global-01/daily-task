@@ -4275,6 +4275,7 @@ function setAdminTeamFilter(part,btn){
   }
   renderAdminUserProfiles();
   if(isSuperAdmin()) loadAdminList();
+  ensureSuperAdminManagementVisible();
   renderAdminUserTasks();
 }
 
@@ -4505,6 +4506,7 @@ function renderAdminUserTasks(){
 function handleAdminPartSelectChange(){
   const filtered=getFilteredUsers();
   refreshAdminTaskFilters(filtered);
+  ensureSuperAdminManagementVisible();
   renderAdminUserTasks();
 }
 
@@ -4704,6 +4706,28 @@ function refreshAdminTaskFilters(filtered){
   if(prevCat && [...catSel.options].some(opt=>opt.value===prevCat)) catSel.value=prevCat;
 }
 
+
+function ensureSuperAdminManagementVisible(){
+  const userListSec=document.getElementById('admin-user-list-section');
+  const settingsSec=document.getElementById('admin-settings-section');
+  const viewAdmin=document.getElementById('view-admin');
+  const tasksSection=document.getElementById('admin-part-task-section');
+  if(!userListSec || !settingsSec || !viewAdmin) return;
+
+  if(isSuperAdmin()){
+    userListSec.style.display='block';
+    settingsSec.style.display='block';
+    // 요약 카드 아래에 고정 배치해서 항상 보이게 정렬
+    if(tasksSection && tasksSection.parentNode===viewAdmin){
+      viewAdmin.insertBefore(userListSec, tasksSection);
+      viewAdmin.insertBefore(settingsSec, tasksSection);
+    }
+  } else {
+    userListSec.style.display='none';
+    settingsSec.style.display='none';
+  }
+}
+
 async function renderAdminDashboard(from,to){
   await loadAllCategories();
   const badge=document.getElementById('admin-role-badge');
@@ -4723,6 +4747,7 @@ async function renderAdminDashboard(from,to){
   renderAdminTeamFilter();
   const filtered=getFilteredUsers();
   refreshAdminTaskFilters(filtered);
+  ensureSuperAdminManagementVisible();
 
   let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
   filtered.forEach(u=>(u.days||[]).forEach(d=>{

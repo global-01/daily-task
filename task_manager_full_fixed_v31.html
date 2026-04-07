@@ -4274,7 +4274,7 @@ function setAdminTeamFilter(part,btn){
     if(prevCat && catSel.querySelector(`option[value="${CSS.escape(prevCat)}"]`)) catSel.value=prevCat;
   }
   renderAdminUserProfiles();
-  if(isSuperAdmin()) await loadAdminList();
+  if(isSuperAdmin()) loadAdminList();
   renderAdminUserTasks();
 }
 

@@ -4098,7 +4098,9 @@ function getTaskScopedParts(task, user){
   const explicitPart=String(task?.categoryPart||'').trim();
   if(explicitPart) return [explicitPart];
   const mappedParts=getCategoryMappedParts(task?.category||'');
-  if(mappedParts.length) return mappedParts;
+  if(mappedParts.length===1) return mappedParts;
+  // 공통/중복 구분(예: 글로벌·일본에 모두 존재)은 categoryPart 없으면 파트 판별 불가로 처리
+  if(mappedParts.length>1) return [];
   // 구분명은 있으나 파트 매핑을 못 찾는 경우에는 사용자 다중 파트 전체에 억지로 매핑하지 않음
   if(String(task?.category||'').trim()) return [];
   // 구분이 아예 없는 업무는 공통으로 취급
@@ -4530,8 +4532,15 @@ function showAdminMinutes(obj){
 /* ── 관리자 탭 보정 함수 (v363) ── */
 function getFilteredUsers(){
   if(!isSuperAdmin()){
-    if(!adminPartFilter) return adminAllData;
-    return adminAllData.filter(u=>hasPart(u.part,adminPartFilter));
+    const scopedPart=adminPartFilter||'';
+    return adminAllData.filter(u=>{
+      if(!scopedPart) return true;
+      return (u.days||[]).some(day=>(day.data?.tasks||[]).some(task=>{
+        if(!taskMatchesAdminScope(task,u)) return false;
+        const part=getPrimaryDisplayPart(u,task)||'(파트 미지정)';
+        return part===scopedPart;
+      }));
+    });
   }
   return adminAllData.filter(u=>{
     if(adminTeamFilter && (u.team||'')!==adminTeamFilter) return false;
@@ -4555,8 +4564,24 @@ function toggleAdminRates(){
 function getPrimaryDisplayPart(user,task){
   const taskParts=getTaskScopedParts(task,user).filter(p=>p && p!=='공통');
   if(isSuperAdmin() && adminSuperPartFilter) return adminSuperPartFilter;
-  if(!isSuperAdmin() && adminAssignedPart) return adminAssignedPart;
   if(!isSuperAdmin() && adminPartFilter) return adminPartFilter;
+
+  if(!isSuperAdmin()){
+    const assignedParts=getAdminAssignedParts();
+    if(assignedParts.length===1) return assignedParts[0];
+    if(assignedParts.length>1){
+      const matchedTaskPart=taskParts
+        .filter(p=>assignedParts.includes(p))
+        .sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b))[0];
+      if(matchedTaskPart) return matchedTaskPart;
+
+      const userParts=parsePartValues(user?.part)
+        .filter(p=>assignedParts.includes(p))
+        .sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b));
+      if(userParts.length) return userParts[0];
+    }
+  }
+
   if(taskParts.length){
     return [...taskParts].sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b))[0];
   }
@@ -4603,19 +4628,28 @@ function refreshAdminTaskFilters(filtered){
   const prevCat=catSel.value||'';
   const prevUser=userSel.value||'';
 
-  const availableParts=[];
-  let hasUnassigned=false;
+  const visibleEntries=[];
   filtered.forEach(u=>{
-    const parts=parsePartValues(u.part);
-    if(parts.length){
-      parts.forEach(p=>{ if(p && !availableParts.includes(p)) availableParts.push(p); });
-    } else {
-      hasUnassigned=true;
-    }
+    (u.days||[]).forEach(d=>{
+      (d.data?.tasks||[]).forEach(task=>{
+        if(!taskMatchesAdminScope(task,u)) return;
+        const part=getPrimaryDisplayPart(u,task)||'(파트 미지정)';
+        visibleEntries.push({user:u,date:d.date,task,part});
+      });
+    });
   });
 
+  const assignedParts=!isSuperAdmin()?getAdminAssignedParts():[];
+  let availableParts=[];
+  if(!isSuperAdmin() && assignedParts.length){
+    availableParts=[...assignedParts];
+  }else{
+    availableParts=[...new Set(visibleEntries.map(v=>v.part).filter(p=>p && p!=='(파트 미지정)'))];
+  }
+  const hasUnassigned=visibleEntries.some(v=>v.part==='(파트 미지정)');
+
   let partHtml='<option value="">전체 파트</option>';
-  PARTS.filter(p=>availableParts.includes(p)).forEach(p=>{
+  [...PARTS.filter(p=>availableParts.includes(p)), ...availableParts.filter(p=>!PARTS.includes(p))].forEach(p=>{
     partHtml += `<option value="${esc(p)}">${esc(p)}</option>`;
   });
   if(hasUnassigned) partHtml += '<option value="(파트 미지정)">(파트 미지정)</option>';
@@ -4623,81 +4657,48 @@ function refreshAdminTaskFilters(filtered){
   if(prevPart && [...partSel.options].some(opt=>opt.value===prevPart)) partSel.value=prevPart;
 
   const activePart=partSel.value||'';
-
-  // 사용자 드롭다운: 첫 번째 드롭다운에서 선택한 파트 사용자만 노출
-  const usersForSelect=filtered.filter(u=>{
-    const parts=parsePartValues(u.part);
-    if(!activePart) return true;
-    if(activePart==='(파트 미지정)') return parts.length===0;
-    return parts.includes(activePart);
-  }).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+  const scopedEntries=visibleEntries.filter(v=>!activePart || v.part===activePart);
 
   let userHtml='<option value="">사용자 선택</option>';
   if(activePart){
-    usersForSelect.forEach(u=>{
-      userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`;
-    });
+    const users=[...new Map(scopedEntries.map(v=>[v.user.user_id,v.user])).values()]
+      .sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+    users.forEach(u=>{ userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`; });
   } else {
-    const userGroups={};
-    usersForSelect.forEach(u=>{
-      const parts=parsePartValues(u.part);
-      const groups=parts.length?parts:['(파트 미지정)'];
-      groups.forEach(group=>{
-        userGroups[group] ??= [];
-        if(!userGroups[group].some(x=>x.user_id===u.user_id)) userGroups[group].push(u);
-      });
+    const groupMap={};
+    scopedEntries.forEach(v=>{
+      groupMap[v.part] ??= [];
+      if(!groupMap[v.part].some(x=>x.user_id===v.user.user_id)) groupMap[v.part].push(v.user);
     });
-    getOrderedGroupKeys(userGroups,[...PARTS,'(파트 미지정)']).forEach(group=>{
-      const arr=(userGroups[group]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
-      if(!arr.length) return;
+    getOrderedGroupKeys(groupMap,[...PARTS,'(파트 미지정)']).forEach(group=>{
+      const users=(groupMap[group]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+      if(!users.length) return;
       userHtml += `<optgroup label="${esc(group)}">`;
-      arr.forEach(u=>{ userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`; });
+      users.forEach(u=>{ userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`; });
       userHtml += '</optgroup>';
     });
   }
   userSel.innerHTML=userHtml;
   if(prevUser && [...userSel.options].some(opt=>opt.value===prevUser)) userSel.value=prevUser;
 
-  // 업무구분 드롭다운: 첫 번째 드롭다운에서 선택한 파트의 구분만 노출
   const catsByPart={};
-  ['공통', ...PARTS, '(파트 미지정)'].forEach(p=>catsByPart[p]=new Set());
-
-  (allCategoriesData||[]).forEach(c=>{
-    const part=(c?.part||'공통');
-    if(c?.name && catsByPart[part]) catsByPart[part].add(c.name);
-  });
-
-  filtered.forEach(u=>{
-    const userParts=parsePartValues(u.part);
-    if(activePart){
-      if(activePart==='(파트 미지정)' && userParts.length) return;
-      if(activePart!=='(파트 미지정)' && !userParts.includes(activePart)) return;
-    }
-    (u.days||[]).forEach(d=>(d.data?.tasks||[]).forEach(t=>{
-      if(!t.category) return;
-      const taskPart=getPrimaryDisplayPart(u,t)||'(파트 미지정)';
-      if(activePart){
-        if(taskPart===activePart) catsByPart[activePart].add(t.category);
-        // 선택한 파트에서 공통 구분을 쓰는 경우도 보존
-        if(taskPart==='공통' && catsByPart[activePart]) catsByPart[activePart].add(t.category);
-      } else {
-        const targetPart = catsByPart[taskPart] ? taskPart : '(파트 미지정)';
-        catsByPart[targetPart].add(t.category);
-      }
-    }));
+  [...PARTS,'(파트 미지정)'].forEach(p=>catsByPart[p]=new Set());
+  scopedEntries.forEach(v=>{
+    const cat=v.task.category||'(미분류)';
+    const partKey=v.part||'(파트 미지정)';
+    catsByPart[partKey] ??= new Set();
+    catsByPart[partKey].add(cat);
   });
 
   let catHtml='<option value="">전체 업무구분</option>';
   if(activePart){
     const directCats=[...(catsByPart[activePart]||[])].sort(compareCategoryName);
-    directCats.forEach(c=>{
-      catHtml += `<option value="${esc(c)}">${esc(c)}</option>`;
-    });
+    directCats.forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
   } else {
-    [...PARTS,'(파트 미지정)'].forEach(p=>{
-      const cats=[...(catsByPart[p]||[])].sort(compareCategoryName);
+    getOrderedGroupKeys(catsByPart,[...PARTS,'(파트 미지정)']).forEach(part=>{
+      const cats=[...(catsByPart[part]||[])].sort(compareCategoryName);
       if(!cats.length) return;
-      catHtml += `<optgroup label="${esc(p)}">`;
+      catHtml += `<optgroup label="${esc(part)}">`;
       cats.forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
       catHtml += '</optgroup>';
     });

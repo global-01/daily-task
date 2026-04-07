@@ -986,7 +986,7 @@
         </div>
         <div class="admin-collapsible-body">
           <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface2);">
-            <select id="admin-part-select" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+            <select id="admin-part-select" onchange="handleAdminPartSelectChange()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
               <option value="">전체 파트</option>
             </select>
             <select id="admin-cat-filter" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
@@ -4273,7 +4273,62 @@ function setAdminTeamFilter(part,btn){
     catSel.innerHTML=catHtml;
     if(prevCat && catSel.querySelector(`option[value="${CSS.escape(prevCat)}"]`)) catSel.value=prevCat;
   }
+  renderAdminUserProfiles();
+  if(isSuperAdmin()) await loadAdminList();
   renderAdminUserTasks();
+}
+
+
+function renderAdminUserProfiles(){
+  const userListEl=document.getElementById('admin-user-list');
+  const settingsSec=document.getElementById('admin-settings-section');
+  const userListSec=document.getElementById('admin-user-list-section');
+  if(settingsSec) settingsSec.style.display=isSuperAdmin()?'block':'none';
+  if(userListSec) userListSec.style.display=isSuperAdmin()?'block':'none';
+  if(!isSuperAdmin()) return;
+  if(!userListEl) return;
+  const teamSelectOpts=`<option value="">미지정</option>`+teamsList.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const superPartOpts=PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
+  userListEl.innerHTML=`
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">이름·팀·파트를 설정하면 관리자 화면에서 구분해서 볼 수 있어요. 파트는 다중 선택할 수 있어요.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:var(--surface2);">
+        <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
+        <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
+        <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">팀</th>
+        <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">파트</th>
+        <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">마지막 접속</th>
+        <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">저장</th>
+      </tr></thead>
+      <tbody>
+        ${adminAllData.map(u=>`
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 10px;color:var(--text2);font-size:11px;">${esc(u.email)}</td>
+            <td style="padding:6px 10px;"><input id="pname_${u.user_id}" value="${esc(u.name)}" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;"></td>
+            <td style="padding:6px 10px;text-align:center;">
+              <select id="pteam_${u.user_id}" style="width:100%;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+                ${teamSelectOpts}
+              </select>
+            </td>
+            <td style="padding:6px 10px;text-align:center;">
+              <select id="ppart_${u.user_id}" multiple size="4" style="width:100%;min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+                ${superPartOpts}
+              </select>
+            </td>
+            <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'—'}</td>
+            <td style="padding:6px 10px;text-align:center;"><button onclick="saveUserProfile('${u.user_id}','${esc(u.email)}')" style="padding:4px 10px;background:var(--accent);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">저장</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+  adminAllData.forEach(u=>{
+    const tsel=document.getElementById('pteam_'+u.user_id);
+    if(tsel) tsel.value=u.team||'';
+    const psel=document.getElementById('ppart_'+u.user_id);
+    if(psel){
+      const parts=parsePartValues(u.part);
+      [...psel.options].forEach(opt=>{opt.selected=parts.includes(opt.value);});
+    }
+  });
 }
 
 /* ── 사용자 프로필 저장 ── */
@@ -4447,6 +4502,12 @@ function renderAdminUserTasks(){
   el.innerHTML=html||'<div class="admin-empty-inline">표시할 업무가 없어요</div>';
 }
 
+function handleAdminPartSelectChange(){
+  const filtered=getFilteredUsers();
+  refreshAdminTaskFilters(filtered);
+  renderAdminUserTasks();
+}
+
 function showAdminMinutes(obj){
   if(typeof obj==='string')obj=JSON.parse(obj);
   const html=`<div style="font-size:13px;line-height:1.8;">
@@ -4541,53 +4602,69 @@ function refreshAdminTaskFilters(filtered){
   const prevUser=userSel.value||'';
 
   const availableParts=[];
-  filtered.forEach(u=>parsePartValues(u.part).forEach(p=>{ if(p && !availableParts.includes(p)) availableParts.push(p); }));
+  let hasUnassigned=false;
+  filtered.forEach(u=>{
+    const parts=parsePartValues(u.part);
+    if(parts.length){
+      parts.forEach(p=>{ if(p && !availableParts.includes(p)) availableParts.push(p); });
+    } else {
+      hasUnassigned=true;
+    }
+  });
+
   let partHtml='<option value="">전체 파트</option>';
-  PARTS.filter(p=>availableParts.includes(p)).forEach(p=> partHtml += `<option value="${esc(p)}">${esc(p)}</option>`);
-  if(filtered.some(u=>!parsePartValues(u.part).length)) partHtml += '<option value="(파트 미지정)">(파트 미지정)</option>';
+  PARTS.filter(p=>availableParts.includes(p)).forEach(p=>{
+    partHtml += `<option value="${esc(p)}">${esc(p)}</option>`;
+  });
+  if(hasUnassigned) partHtml += '<option value="(파트 미지정)">(파트 미지정)</option>';
   partSel.innerHTML=partHtml;
-  if(prevPart && partSel.querySelector(`option[value="${CSS.escape(prevPart)}"]`)) partSel.value=prevPart;
+  if(prevPart && [...partSel.options].some(opt=>opt.value===prevPart)) partSel.value=prevPart;
 
   const activePart=partSel.value||'';
 
-  const userGroups={};
-  const pushUserToGroup=(group,u)=>{
-    userGroups[group] ??= [];
-    if(!userGroups[group].some(x=>x.user_id===u.user_id)) userGroups[group].push(u);
-  };
-
-  filtered.forEach(u=>{
+  // 사용자 드롭다운: 첫 번째 드롭다운에서 선택한 파트 사용자만 노출
+  const usersForSelect=filtered.filter(u=>{
     const parts=parsePartValues(u.part);
-    const groupKeys=parts.length ? parts : ['(파트 미지정)'];
-    if(activePart){
-      if(activePart==='(파트 미지정)'){
-        if(!parts.length) pushUserToGroup('(파트 미지정)', u);
-      } else if(groupKeys.includes(activePart)) {
-        pushUserToGroup(activePart, u);
-      }
-      return;
-    }
-    groupKeys.forEach(group=>pushUserToGroup(group, u));
-  });
+    if(!activePart) return true;
+    if(activePart==='(파트 미지정)') return parts.length===0;
+    return parts.includes(activePart);
+  }).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
 
   let userHtml='<option value="">사용자 선택</option>';
-  const orderedUserGroups=activePart ? [activePart] : [...PARTS,'(파트 미지정)'];
-  getOrderedGroupKeys(userGroups, orderedUserGroups).forEach(group=>{
-    const arr=(userGroups[group]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
-    if(!arr.length) return;
-    if(!activePart) userHtml += `<optgroup label="${esc(group)}">`;
-    arr.forEach(u=> userHtml += `<option value="${esc(u.user_id)}">${esc(u.name)}</option>`);
-    if(!activePart) userHtml += '</optgroup>';
-  });
+  if(activePart){
+    usersForSelect.forEach(u=>{
+      userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`;
+    });
+  } else {
+    const userGroups={};
+    usersForSelect.forEach(u=>{
+      const parts=parsePartValues(u.part);
+      const groups=parts.length?parts:['(파트 미지정)'];
+      groups.forEach(group=>{
+        userGroups[group] ??= [];
+        if(!userGroups[group].some(x=>x.user_id===u.user_id)) userGroups[group].push(u);
+      });
+    });
+    getOrderedGroupKeys(userGroups,[...PARTS,'(파트 미지정)']).forEach(group=>{
+      const arr=(userGroups[group]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+      if(!arr.length) return;
+      userHtml += `<optgroup label="${esc(group)}">`;
+      arr.forEach(u=>{ userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`; });
+      userHtml += '</optgroup>';
+    });
+  }
   userSel.innerHTML=userHtml;
-  if(prevUser && userSel.querySelector(`option[value="${CSS.escape(prevUser)}"]`)) userSel.value=prevUser;
+  if(prevUser && [...userSel.options].some(opt=>opt.value===prevUser)) userSel.value=prevUser;
 
+  // 업무구분 드롭다운: 첫 번째 드롭다운에서 선택한 파트의 구분만 노출
   const catsByPart={};
   ['공통', ...PARTS, '(파트 미지정)'].forEach(p=>catsByPart[p]=new Set());
+
   (allCategoriesData||[]).forEach(c=>{
     const part=(c?.part||'공통');
     if(c?.name && catsByPart[part]) catsByPart[part].add(c.name);
   });
+
   filtered.forEach(u=>{
     const userParts=parsePartValues(u.part);
     if(activePart){
@@ -4596,11 +4673,13 @@ function refreshAdminTaskFilters(filtered){
     }
     (u.days||[]).forEach(d=>(d.data?.tasks||[]).forEach(t=>{
       if(!t.category) return;
-      const part=getPrimaryDisplayPart(u,t)||'(파트 미지정)';
+      const taskPart=getPrimaryDisplayPart(u,t)||'(파트 미지정)';
       if(activePart){
-        if(part===activePart) catsByPart[activePart].add(t.category);
+        if(taskPart===activePart) catsByPart[activePart].add(t.category);
+        // 선택한 파트에서 공통 구분을 쓰는 경우도 보존
+        if(taskPart==='공통' && catsByPart[activePart]) catsByPart[activePart].add(t.category);
       } else {
-        const targetPart = catsByPart[part] ? part : '(파트 미지정)';
+        const targetPart = catsByPart[taskPart] ? taskPart : '(파트 미지정)';
         catsByPart[targetPart].add(t.category);
       }
     }));
@@ -4608,19 +4687,21 @@ function refreshAdminTaskFilters(filtered){
 
   let catHtml='<option value="">전체 업무구분</option>';
   if(activePart){
-    const cats=[...(catsByPart[activePart]||[])].sort(compareCategoryName);
-    cats.forEach(c=> catHtml += `<option value="${esc(c)}">${esc(c)}</option>`);
+    const directCats=[...(catsByPart[activePart]||[])].sort(compareCategoryName);
+    directCats.forEach(c=>{
+      catHtml += `<option value="${esc(c)}">${esc(c)}</option>`;
+    });
   } else {
     [...PARTS,'(파트 미지정)'].forEach(p=>{
       const cats=[...(catsByPart[p]||[])].sort(compareCategoryName);
       if(!cats.length) return;
       catHtml += `<optgroup label="${esc(p)}">`;
-      cats.forEach(c=> catHtml += `<option value="${esc(c)}">${esc(c)}</option>`);
+      cats.forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
       catHtml += '</optgroup>';
     });
   }
   catSel.innerHTML=catHtml;
-  if(prevCat && catSel.querySelector(`option[value="${CSS.escape(prevCat)}"]`)) catSel.value=prevCat;
+  if(prevCat && [...catSel.options].some(opt=>opt.value===prevCat)) catSel.value=prevCat;
 }
 
 async function renderAdminDashboard(from,to){

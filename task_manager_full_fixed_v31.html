@@ -3823,6 +3823,7 @@ async function checkAdmin(){
 }
 
 function isSuperAdmin(){return adminRole==='super';}
+function getAdminAssignedParts(){ return parsePartValues(adminAssignedPart); }
 
 /* ── 기간 설정 ── */
 function setAdminPeriod(p,btn){
@@ -3905,19 +3906,7 @@ async function loadAdminData(){
     (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||'',part:serializePartValues(p.part||'')};});
 
     // 3) 기간 내 daily_tasks
-    // 팀 관리자: 담당 팀 user_id만 필터해서 가져옴
     let taskUrl=`${SB_URL}/rest/v1/daily_tasks?date=gte.${from}&date=lte.${to}&select=user_id,date,data&order=date.asc`;
-    let scopedUserIds=[];
-    if(!isSuperAdmin()&&adminAssignedPart){
-      // 담당 파트 프로필의 user_id 목록 추출
-      scopedUserIds=(profiles||[])
-        .filter(p=>hasPart(p.part,adminAssignedPart))
-        .map(p=>p.user_id);
-      if(scopedUserIds.length>0){
-        taskUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
-      }
-      // 없으면 빈 결과 (전체 조회 안 함)
-    }
     const taskRes=await fetchWithAuth(taskUrl);
     const allTasks=await taskRes.json();
     console.log('admin tasks:', allTasks?.length);
@@ -3926,9 +3915,6 @@ async function loadAdminData(){
     adminRecurringMap={};
     try{
       let recurringUrl=`${SB_URL}/rest/v1/recurring_tasks?select=user_id,data`;
-      if(scopedUserIds.length>0){
-        recurringUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
-      }
       const recurringRes=await fetchWithAuth(recurringUrl);
       const recurringRows=await recurringRes.json();
       (recurringRows||[]).forEach(row=>{
@@ -3961,17 +3947,16 @@ async function loadAdminData(){
       days:tasksByUser[u.user_id]||[]
     }));
 
-    // 파트 관리자는 담당 파트 사용자만 — 데이터 자체를 필터링
-    if(!isSuperAdmin()){
-      if(adminAssignedPart){
-        // 담당 파트만
-        adminAllData=allUsers.filter(u=>hasPart(u.part,adminAssignedPart));
-      } else {
-        // 담당 파트 미지정 → 전체 조회 (제한없음)
-        adminAllData=allUsers;
-      }
-    } else {
+    if(isSuperAdmin()){
       adminAllData=allUsers;
+    } else {
+      const assignedParts=getAdminAssignedParts();
+      adminAllData=allUsers.filter(u=>{
+        if(adminAssignedTeam && (u.team||'')!==adminAssignedTeam) return false;
+        if(u.email===currentSession?.user?.email) return false;
+        if(assignedParts.length && !assignedParts.some(p=>hasPart(u.part,p))) return false;
+        return true;
+      });
     }
 
     renderAdminTeamFilter();
@@ -4103,8 +4088,9 @@ function getScopedPartsForUser(user){
     if(adminSuperPartFilter) return [adminSuperPartFilter];
     return [];
   }
-  if(adminAssignedPart) return [adminAssignedPart];
+  const assignedParts=getAdminAssignedParts();
   if(adminPartFilter) return [adminPartFilter];
+  if(assignedParts.length) return assignedParts;
   return parsePartValues(user?.part);
 }
 
@@ -4129,8 +4115,9 @@ function taskMatchesAdminScope(task, user){
 }
 
 function getTeamManagerTaskGroup(task, user){
-  if(adminAssignedPart) return adminAssignedPart;
   if(adminPartFilter) return adminPartFilter;
+  const assignedParts=getAdminAssignedParts();
+  if(assignedParts.length===1) return assignedParts[0];
   const taskParts=getTaskScopedParts(task, user).filter(p=>p!=='공통');
   if(!taskParts.length) return '(미분류)';
   const userParts=parsePartValues(user?.part);
@@ -4142,19 +4129,14 @@ function renderAdminTeamFilter(){
   const wrap=document.getElementById('admin-team-filter-wrap');
   if(!wrap)return;
   if(!isSuperAdmin()){
-    if(adminAssignedPart){
-      // 담당 파트 고정 → 필터 숨김
-      wrap.parentElement.style.display='none';
-    } else {
-      // 전체 권한 관리자 → 파트 필터 표시
-      wrap.parentElement.style.display='flex';
-      wrap.innerHTML=
-        `<button class="ptab part-btn ${adminPartFilter===''?'active':''}" onclick="setAdminPartFilter('',this)">전체</button>`+
-        PARTS.map(p=>`<button class="ptab part-btn ${adminPartFilter===p?'active':''}" onclick="setAdminPartFilter('${esc(p)}',this)">${esc(p)}</button>`).join('');
-    }
+    wrap.parentElement.style.display='flex';
+    const scopedParts=getAdminAssignedParts();
+    const allowedParts=scopedParts.length ? PARTS.filter(p=>scopedParts.includes(p)) : [...PARTS];
+    wrap.innerHTML=
+      `<button class="ptab part-btn ${adminPartFilter===''?'active':''}" onclick="setAdminPartFilter('',this)">전체</button>`+
+      allowedParts.map(p=>`<button class="ptab part-btn ${adminPartFilter===p?'active':''}" onclick="setAdminPartFilter('${esc(p)}',this)">${esc(p)}</button>`).join('');
     return;
   }
-  // 슈퍼 관리자: 팀 + 파트 필터 표시
   wrap.parentElement.style.display='flex';
   wrap.innerHTML=`
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -4924,7 +4906,6 @@ async function removeTeam(name){
 
 async function loadAdminList(){
   if(!isSuperAdmin())return;
-  // teamsList가 비어있으면 먼저 로드
   if(!teamsList.length)await loadTeams();
   try{
     const res=await fetch(`${SB_URL}/rest/v1/admins?select=id,email,role,assigned_team,assigned_part,created_at&order=created_at.asc`,{headers:getSBHeaders()});
@@ -4932,38 +4913,39 @@ async function loadAdminList(){
     const el=document.getElementById('admin-list');
     if(!admins||!admins.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);">등록된 관리자가 없어요</div>';return;}
 
-    // 파트 고정 목록 사용 (글로벌/일본/신사업)
-    // 담당팀 드롭다운은 팀 목록(teamsList) 사용 — 파트(PARTS) 아님
-    const teamOpts=`<option value="">전체(제한없음)</option>`+teamsList.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
-
-    const partOpts2=`<option value="">전체(제한없음)</option>`+PARTS.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    const partOpts=PARTS.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
     el.innerHTML=admins.map(a=>`
-      <div class="admin-user-chip" style="margin-bottom:6px;flex-wrap:wrap;gap:8px;">
-        <div style="flex:1;min-width:180px;">
+      <div class="admin-user-chip" style="margin-bottom:8px;align-items:flex-start;gap:10px;">
+        <div style="flex:1;min-width:220px;">
           <div style="font-size:13px;font-weight:500;">${esc(a.email)}${a.email===currentSession?.user?.email?' <span style="font-size:10px;color:var(--accent);">(나)</span>':''}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px;">
-            ${a.role==='super'?'<span style="color:var(--red);font-weight:600;">슈퍼 관리자</span>':'<span style="color:var(--blue);">관리자</span>'}
-            ${a.assigned_part&&a.role!=='super'?` · 담당: ${esc(a.assigned_part)} 파트`:(a.role!=='super'?' · 전체 조회':'')}
+            ${a.role==='super'?'<span style="color:var(--red);font-weight:600;">슈퍼 관리자</span>':`<span style="color:var(--blue);">팀 관리자</span>${a.assigned_team?` · 팀: ${esc(a.assigned_team)}`:''}${parsePartValues(a.assigned_part).length?` · 파트: ${esc(parsePartValues(a.assigned_part).join(', '))}`:' · 전체 파트 조회'}`}
           </div>
         </div>
         ${a.role!=='super'?`
-          <select id="apart_${a.id}" onchange="updateAdminPart('${a.id}',this.value)" style="border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
-            ${partOpts2}
-          </select>`:''}
+          <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+            <select id="apart_${a.id}" multiple size="4" onchange="updateAdminPart('${a.id}',this)" style="min-width:130px;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              ${partOpts}
+            </select>
+            <div style="font-size:11px;color:var(--text3);line-height:1.5;min-width:110px;">복수 선택 가능<br>선택 없으면 전체 파트 조회</div>
+          </div>`:''}
         ${a.email!==currentSession?.user?.email?`<button onclick="removeAdmin('${a.id}','${esc(a.email)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:6px;cursor:pointer;flex-shrink:0;">삭제</button>`:''}
       </div>`).join('');
 
-    // 저장된 담당파트 선택 반영
     admins.forEach(a=>{
       const sel=document.getElementById('apart_'+a.id);
-      if(sel)sel.value=a.assigned_part||'';
+      if(sel){
+        const selectedParts=parsePartValues(a.assigned_part);
+        [...sel.options].forEach(opt=>{opt.selected=selectedParts.includes(opt.value);});
+      }
     });
-    // 팀 목록 렌더
     renderTeamsList();
   }catch(e){console.error('loadAdminList:',e);}
 }
 
-async function updateAdminPart(adminId,part){
+async function updateAdminPart(adminId, selectEl){
+  const parts=selectEl?[...selectEl.selectedOptions].map(opt=>opt.value).filter(Boolean):[];
+  const part=serializePartValues(parts);
   try{
     const res=await fetch(`${SB_URL}/rest/v1/admins?id=eq.${adminId}`,{
       method:'PATCH',
@@ -4971,7 +4953,7 @@ async function updateAdminPart(adminId,part){
       body:JSON.stringify({assigned_part:part})
     });
     if(res.ok){
-      toast(`✅ 담당 파트가 '${part||'전체(제한없음)'}'로 설정됐어요`);
+      toast(`✅ 담당 파트가 '${parts.length?parts.join(', '):'전체(제한없음)'}'로 설정됐어요`);
       await loadAdminList();
     } else {
       const err=await res.text().catch(()=>'');
@@ -4981,6 +4963,7 @@ async function updateAdminPart(adminId,part){
   }catch(e){toast('오류: '+e.message);}
 }
 
+
 async function addAdmin(){
   const email=document.getElementById('admin-add-email').value.trim();
   if(!email||!email.includes('@')){toast('올바른 이메일을 입력해 주세요');return;}
@@ -4988,7 +4971,7 @@ async function addAdmin(){
     const res=await fetch(`${SB_URL}/rest/v1/admins`,{
       method:'POST',
       headers:{...getSBHeaders(),'Prefer':'return=minimal'},
-      body:JSON.stringify({email})
+      body:JSON.stringify({email,role:'team',assigned_part:''})
     });
     if(res.status===200||res.status===201||res.status===204){
       document.getElementById('admin-add-email').value='';

@@ -996,7 +996,7 @@
               <option value="">전체 사용자</option>
             </select>
           </div>
-          <div id="admin-task-status-bar" style="display:none;padding:10px 18px;border-bottom:1px solid var(--border);background:#fffaf2;"></div>
+          <div id="admin-task-status-bar" style="display:none;padding:12px 18px;border-bottom:1px solid var(--border);background:#eef4ff;"></div>
           <div id="admin-user-tasks" style="padding:14px 18px;"></div>
         </div>
       </div>
@@ -4474,8 +4474,9 @@ function renderAdminUserTasks(){
       statusBar.style.display='flex';
       statusBar.style.alignItems='center';
       statusBar.style.justifyContent='space-between';
-      statusBar.style.gap='10px';
-      statusBar.innerHTML=`<div style="font-size:12px;color:var(--text2);">현재 보기: <strong style="color:var(--text);">${esc(selectedPart||'전체 파트')}</strong> / <strong style="color:var(--accent);">${getAdminStatusFilterLabel(adminTaskStatusFilter)}</strong></div><button onclick="setAdminTaskStatusFilter('', '')" style="padding:4px 10px;border:1px solid var(--border2);border-radius:999px;background:white;color:var(--text2);font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 보기</button>`;
+      statusBar.style.gap='12px';
+      statusBar.style.flexWrap='wrap';
+      statusBar.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:white;border:1px solid #d9e6ff;font-size:11px;font-weight:600;color:var(--accent);">필터 적용됨</span><div style="font-size:13px;color:var(--text2);">현재 보기: <strong style="color:var(--text);">${esc(selectedPart||'전체 파트')}</strong> / <strong style="color:var(--accent);">${getAdminStatusFilterLabel(adminTaskStatusFilter)}</strong></div></div><button onclick="setAdminTaskStatusFilter('', document.getElementById('admin-part-select')?.value||'')" style="padding:8px 14px;border:1px solid var(--accent);border-radius:999px;background:white;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 보기</button>`;
     }else{
       statusBar.style.display='none';
       statusBar.innerHTML='';
@@ -4530,7 +4531,7 @@ function renderAdminUserTasks(){
 
     html+=`<div class="admin-group-card" style="padding:14px 16px;"><div class="admin-group-head"><div><div class="admin-group-title">${esc(part)}</div><div class="admin-group-sub">업무 ${info.items.length}건 · 사용자 ${Object.keys(info.userMap).length}명</div></div><span class="admin-pill">파트 기준</span></div>`;
 
-    if(!selectedPart && !uid && !catFilter && !adminTaskStatusFilter){
+    if(!uid && !catFilter && !adminTaskStatusFilter){
       html+=`<div class="admin-simple-list">
         <div class="admin-mini-grid">
           <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('done', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">완료</div><div class="admin-mini-value">${doneCnt}</div><div class="admin-mini-sub">완료율 ${Math.round(doneCnt/info.items.length*100)}%</div></div>

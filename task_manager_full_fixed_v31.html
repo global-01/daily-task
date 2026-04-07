@@ -4712,6 +4712,7 @@ function ensureSuperAdminManagementVisible(){
   const settingsSec=document.getElementById('admin-settings-section');
   const viewAdmin=document.getElementById('view-admin');
   const tasksSection=document.getElementById('admin-part-task-section');
+  const userListEl=document.getElementById('admin-user-list');
   if(!userListSec || !settingsSec || !viewAdmin) return;
 
   if(isSuperAdmin()){
@@ -4721,6 +4722,13 @@ function ensureSuperAdminManagementVisible(){
     if(tasksSection && tasksSection.parentNode===viewAdmin){
       viewAdmin.insertBefore(userListSec, tasksSection);
       viewAdmin.insertBefore(settingsSec, tasksSection);
+    }
+    // 회귀 버그 방지: 섹션은 보이는데 내용이 비는 경우 즉시 다시 렌더
+    if(userListEl && !String(userListEl.innerHTML||'').trim()){
+      renderAdminUserProfiles();
+    }
+    if(document.getElementById('admin-list') && !String(document.getElementById('admin-list').innerHTML||'').trim()){
+      loadAdminList();
     }
   } else {
     userListSec.style.display='none';
@@ -4748,6 +4756,10 @@ async function renderAdminDashboard(from,to){
   const filtered=getFilteredUsers();
   refreshAdminTaskFilters(filtered);
   ensureSuperAdminManagementVisible();
+  if(isSuperAdmin()){
+    renderAdminUserProfiles();
+    loadAdminList();
+  }
 
   let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
   filtered.forEach(u=>(u.days||[]).forEach(d=>{

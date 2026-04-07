@@ -4133,6 +4133,32 @@ function taskMatchesAdminScope(task, user){
   return taskParts.some(p=>scopedParts.includes(p));
 }
 
+function getUserVisibleAdminParts(user){
+  const userParts=parsePartValues(user?.part);
+  if(isSuperAdmin()){
+    if(adminSuperPartFilter) return [adminSuperPartFilter];
+    return userParts.length ? userParts : ['(파트 미지정)'];
+  }
+
+  const assignedParts=getAdminAssignedParts();
+  if(!assignedParts.length) return userParts.length ? userParts : ['(파트 미지정)'];
+
+  const matchedUserParts=userParts.filter(p=>assignedParts.includes(p));
+  if(matchedUserParts.length) return matchedUserParts;
+
+  const taskParts=new Set();
+  (user?.days||[]).forEach(day=>{
+    (day.data?.tasks||[]).forEach(task=>{
+      if(!taskMatchesAdminScope(task,user)) return;
+      getTaskScopedParts(task,user)
+        .filter(p=>p && p!=='공통' && assignedParts.includes(p))
+        .forEach(p=>taskParts.add(p));
+    });
+  });
+  if(taskParts.size) return [...taskParts].sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b));
+  return ['(파트 미지정)'];
+}
+
 function getTeamManagerTaskGroup(task, user){
   if(adminPartFilter) return adminPartFilter;
   const assignedParts=getAdminAssignedParts();
@@ -4810,7 +4836,7 @@ async function renderAdminDashboard(from,to){
     totalCarry += tasks.filter(t=>t.carriedFrom).length;
   }));
   const avgRate=totalTasks?Math.round(totalDone/totalTasks*100):0;
-  const activeUsers=filtered.filter(u=>(u.days||[]).length>0).length;
+  const activeUsers=filtered.filter(u=>(u.days||[]).some(day=>(day.data?.tasks||[]).some(task=>taskMatchesAdminScope(task,u)))).length;
   const cards=document.getElementById('admin-summary-cards');
   if(cards){
     cards.innerHTML=`
@@ -4825,8 +4851,8 @@ async function renderAdminDashboard(from,to){
   if(ratesEl){
     const groups={};
     filtered.forEach(u=>{
-      const parts=parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)'];
-      parts.forEach(part=>{
+      const visibleParts=getUserVisibleAdminParts(u);
+      visibleParts.forEach(part=>{
         groups[part] ??= [];
         if(!groups[part].some(x=>x.user_id===u.user_id)) groups[part].push(u);
       });

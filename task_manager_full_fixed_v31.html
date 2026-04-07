@@ -2939,12 +2939,29 @@ function getSelectedCategoryMeta(selectId){
   };
 }
 
-function renderCategoryOptions(){
+function renderCategoryOptions(selected='', selectedPart=''){
   const sel=document.getElementById('nc');
   if(!sel) return;
-  const current=sel.value||'';
-  sel.innerHTML=getCategoryOptionsHtml(current, '');
-  if(categoriesList.includes(current)) sel.value=current;
+
+  const currentMeta = selected || selectedPart
+    ? { category:selected||'', categoryPart:selectedPart||'' }
+    : getSelectedCategoryMeta(sel);
+
+  const current = currentMeta.category||'';
+  const currentPart = (currentMeta.categoryPart||'').trim();
+
+  sel.innerHTML=getCategoryOptionsHtml(current, currentPart);
+
+  if(!current) return;
+
+  const opts=[...sel.options];
+  let match=opts.find(o => (o.value||'')===current && (o.dataset.part||'')===currentPart);
+  if(!match && currentPart){
+    match=opts.find(o => (o.value||'')===current);
+  }
+  if(match){
+    sel.selectedIndex=opts.indexOf(match);
+  }
 }
 
 async function loadCategories(){
@@ -4681,22 +4698,44 @@ function refreshAdminTaskFilters(filtered){
   userSel.innerHTML=userHtml;
   if(prevUser && [...userSel.options].some(opt=>opt.value===prevUser)) userSel.value=prevUser;
 
-  const catsByPart={};
-  [...PARTS,'(파트 미지정)'].forEach(p=>catsByPart[p]=new Set());
+  const partMasterCats={};
+  const addCatToPart=(partKey, catName)=>{
+    if(!catName) return;
+    partMasterCats[partKey] ??= new Set();
+    partMasterCats[partKey].add(catName);
+  };
+
+  addCatToPart('공통', '(미분류)');
+  PARTS.forEach(part=>{ partMasterCats[part] ??= new Set(); });
+  if(hasUnassigned) partMasterCats['(파트 미지정)'] ??= new Set();
+
+  (allCategoriesData||[]).forEach(c=>{
+    const partKey=(c?.part||'공통');
+    addCatToPart(partKey, c?.name||'');
+  });
+
   scopedEntries.forEach(v=>{
     const cat=v.task.category||'(미분류)';
     const partKey=v.part||'(파트 미지정)';
-    catsByPart[partKey] ??= new Set();
-    catsByPart[partKey].add(cat);
+    addCatToPart(partKey, cat);
   });
 
   let catHtml='<option value="">전체 업무구분</option>';
   if(activePart){
-    const directCats=[...(catsByPart[activePart]||[])].sort(compareCategoryName);
-    directCats.forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
+    const directCats=new Set();
+    if(activePart==='(파트 미지정)'){
+      [...(partMasterCats['공통']||[])].forEach(cat=>directCats.add(cat));
+      [...(partMasterCats['(파트 미지정)']||[])].forEach(cat=>directCats.add(cat));
+    } else {
+      [...(partMasterCats['공통']||[])].forEach(cat=>directCats.add(cat));
+      [...(partMasterCats[activePart]||[])].forEach(cat=>directCats.add(cat));
+    }
+    [...directCats].sort(compareCategoryName).forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
   } else {
-    getOrderedGroupKeys(catsByPart,[...PARTS,'(파트 미지정)']).forEach(part=>{
-      const cats=[...(catsByPart[part]||[])].sort(compareCategoryName);
+    const orderedParts=['공통', ...PARTS.filter(p=>availableParts.includes(p)), ...availableParts.filter(p=>!PARTS.includes(p))];
+    if(hasUnassigned) orderedParts.push('(파트 미지정)');
+    orderedParts.forEach(part=>{
+      const cats=[...(partMasterCats[part]||[])].sort(compareCategoryName);
       if(!cats.length) return;
       catHtml += `<optgroup label="${esc(part)}">`;
       cats.forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });

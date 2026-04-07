@@ -3822,6 +3822,7 @@ let adminRole=''; // 'super' | 'team' | ''
 let adminAssignedTeam=''; // 팀 관리자의 담당 팀
 let adminAssignedPart=''; // 파트 관리자의 담당 파트 (글로벌/일본/신사업/'')
 let adminTaskStatusFilter=''; // 파트별 업무 목록 카드 클릭 필터
+let adminTaskViewRestoreState=null; // 카드 클릭 전 드롭다운 상태 복원용
 
 async function checkAdmin(){
   if(!currentSession?.user?.email)return false;
@@ -4428,9 +4429,38 @@ function setAdminTaskStatusFilter(status, part){
   const catSel=document.getElementById('admin-cat-filter');
   const userSel=document.getElementById('admin-user-select');
   const nextPart=(typeof part!=='undefined' && part!==null) ? (part||'') : (partSel?.value||'');
-  const shouldClear=(adminTaskStatusFilter===status && (!partSel || partSel.value===nextPart));
-  adminTaskStatusFilter = shouldClear ? '' : status;
-  if(partSel) partSel.value=shouldClear ? '' : nextPart;
+  const sameStatus=(adminTaskStatusFilter===status && (!partSel || partSel.value===nextPart));
+  const clearRequested=(!status) || sameStatus;
+
+  if(clearRequested){
+    adminTaskStatusFilter='';
+    const restore=adminTaskViewRestoreState;
+    adminTaskViewRestoreState=null;
+    if(restore){
+      if(partSel) partSel.value=restore.part||'';
+      refreshAdminTaskFilters(getFilteredUsers());
+      if(catSel) catSel.value=restore.category||'';
+      if(userSel) userSel.value=restore.user||'';
+    }else{
+      if(partSel) partSel.value='';
+      if(catSel) catSel.value='';
+      if(userSel) userSel.value='';
+      refreshAdminTaskFilters(getFilteredUsers());
+    }
+    renderAdminUserTasks();
+    return;
+  }
+
+  if(!adminTaskStatusFilter){
+    adminTaskViewRestoreState={
+      part:partSel?.value||'',
+      category:catSel?.value||'',
+      user:userSel?.value||''
+    };
+  }
+
+  adminTaskStatusFilter=status;
+  if(partSel) partSel.value=nextPart;
   if(catSel) catSel.value='';
   if(userSel) userSel.value='';
   refreshAdminTaskFilters(getFilteredUsers());
@@ -4476,7 +4506,7 @@ function renderAdminUserTasks(){
       statusBar.style.justifyContent='space-between';
       statusBar.style.gap='12px';
       statusBar.style.flexWrap='wrap';
-      statusBar.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:white;border:1px solid #d9e6ff;font-size:11px;font-weight:600;color:var(--accent);">필터 적용됨</span><div style="font-size:13px;color:var(--text2);">현재 보기: <strong style="color:var(--text);">${esc(selectedPart||'전체 파트')}</strong> / <strong style="color:var(--accent);">${getAdminStatusFilterLabel(adminTaskStatusFilter)}</strong></div></div><button onclick="setAdminTaskStatusFilter('', document.getElementById('admin-part-select')?.value||'')" style="padding:8px 14px;border:1px solid var(--accent);border-radius:999px;background:white;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 보기</button>`;
+      statusBar.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:white;border:1px solid #d9e6ff;font-size:11px;font-weight:600;color:var(--accent);">필터 적용됨</span><div style="font-size:13px;color:var(--text2);">현재 보기: <strong style="color:var(--text);">${esc(selectedPart||'전체 파트')}</strong> / <strong style="color:var(--accent);">${getAdminStatusFilterLabel(adminTaskStatusFilter)}</strong></div></div><button onclick="setAdminTaskStatusFilter('')" style="padding:8px 14px;border:1px solid var(--accent);border-radius:999px;background:white;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;box-shadow:0 1px 4px rgba(59,95,160,.10);">전체 보기</button>`;
     }else{
       statusBar.style.display='none';
       statusBar.innerHTML='';
@@ -4590,6 +4620,7 @@ function renderAdminUserTasks(){
 
 function handleAdminPartSelectChange(){
   adminTaskStatusFilter='';
+  adminTaskViewRestoreState=null;
   const filtered=getFilteredUsers();
   refreshAdminTaskFilters(filtered);
   ensureSuperAdminManagementVisible();

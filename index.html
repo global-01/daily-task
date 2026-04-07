@@ -293,6 +293,37 @@
   .admin-undone-name{font-size:12px;color:var(--text);flex:1;}
   .admin-undone-user{font-size:11px;color:var(--text3);}
   .admin-user-chip{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:var(--r2);margin-bottom:6px;font-size:13px;}
+  .admin-collapsible .section-head{cursor:pointer;user-select:none;}
+  .admin-head-meta{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text3);}
+  .admin-head-summary{font-size:11px;color:var(--text3);font-weight:500;}
+  .admin-toggle-icon{font-size:13px;color:var(--text3);min-width:44px;text-align:right;}
+  .admin-collapsible-body{display:none;}
+  .admin-collapsible.open .admin-collapsible-body{display:block;}
+  .admin-mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .admin-mini-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);padding:10px 12px;}
+  .admin-mini-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+  .admin-mini-value{font-size:18px;font-weight:700;color:var(--text);margin-top:4px;}
+  .admin-mini-sub{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5;}
+  .admin-group-card{border:1px solid var(--border);border-radius:var(--r2);background:var(--surface);margin-bottom:12px;overflow:hidden;}
+  .admin-group-head{padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .admin-group-title{font-size:13px;font-weight:600;color:var(--text);}
+  .admin-group-sub{font-size:11px;color:var(--text3);}
+  .admin-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;}
+  .admin-simple-list{display:flex;flex-direction:column;gap:8px;padding:12px 14px;}
+  .admin-simple-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r2);background:var(--surface2);}
+  .admin-simple-main{min-width:0;flex:1;}
+  .admin-simple-title{font-size:12px;color:var(--text);font-weight:500;line-height:1.5;}
+  .admin-simple-meta{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5;}
+  .admin-tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .admin-tag{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);}
+  .admin-user-summary{padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .admin-user-summary:last-child{border-bottom:none;}
+  .admin-user-summary-name{font-size:13px;font-weight:600;color:var(--text);}
+  .admin-user-summary-meta{font-size:11px;color:var(--text3);margin-top:3px;}
+  .admin-category-block{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+  .admin-category-block:first-of-type{margin-top:0;padding-top:0;border-top:none;}
+  .admin-category-title{font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:6px;}
+  .admin-empty-inline{padding:14px 18px;font-size:13px;color:var(--text3);}
 
   /* ── RECURRING ── */
   .rec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
@@ -944,35 +975,54 @@
       <!-- 요약 카드 -->
       <div id="admin-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
 
-      <!-- 사용자별 달성률 -->
-      <div class="section-card" style="margin-bottom:16px;">
-        <div class="section-head" onclick="toggleAdminRates()" style="cursor:pointer;user-select:none;">
-          <h3>👥 사용자별 달성률</h3>
-          <span id="admin-rates-toggle" style="font-size:13px;color:var(--text3);">▶ 펼치기</span>
+      <!-- 파트별 업무 목록 -->
+      <div class="section-card admin-collapsible" id="admin-tasks-section" style="margin-bottom:16px;">
+        <div class="section-head" onclick="toggleAdminSection('tasks')" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <h3>📋 파트별 업무 목록</h3>
+          <div class="admin-head-meta">
+            <span id="admin-tasks-summary" class="admin-head-summary">간략 요약</span>
+            <span id="admin-tasks-toggle" class="admin-toggle-icon">▶ 펼치기</span>
+          </div>
         </div>
-        <div id="admin-user-rates" style="padding:14px 18px;display:none;"></div>
+        <div class="admin-collapsible-body">
+          <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface2);">
+            <select id="admin-part-select" onchange="handleAdminPartSelectChange()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              <option value="">전체 파트</option>
+            </select>
+            <select id="admin-cat-filter" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              <option value="">전체 업무구분</option>
+            </select>
+            <select id="admin-user-select" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              <option value="">전체 사용자</option>
+            </select>
+          </div>
+          <div id="admin-task-status-bar" style="display:none;padding:12px 18px;border-bottom:1px solid var(--border);background:#eef4ff;"></div>
+          <div id="admin-user-tasks" style="padding:14px 18px;"></div>
+        </div>
+      </div>
+
+      <!-- 사용자별 달성률 -->
+      <div class="section-card admin-collapsible" id="admin-rates-section" style="margin-bottom:16px;">
+        <div class="section-head" onclick="toggleAdminSection('rates')">
+          <h3>👥 사용자별 달성률</h3>
+          <div class="admin-head-meta">
+            <span id="admin-rates-summary" class="admin-head-summary">간략 요약</span>
+            <span id="admin-rates-toggle" class="admin-toggle-icon">▶ 펼치기</span>
+          </div>
+        </div>
+        <div id="admin-user-rates" class="admin-collapsible-body" style="padding:14px 18px;"></div>
       </div>
 
       <!-- 미완료/이월 현황 -->
-      <div class="section-card" style="margin-bottom:16px;">
-        <div class="section-head"><h3>⚠️ 미완료 · 이월 현황 (현재 시점 기준)</h3></div>
-        <div id="admin-undone-list" style="padding:14px 18px;"></div>
-      </div>
-
-      <!-- 사용자별 업무 목록 -->
-      <div class="section-card" style="margin-bottom:16px;">
-        <div class="section-head" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <h3>📋 사용자별 업무 목록</h3>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <select id="admin-cat-filter" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
-              <option value="">전체 구분</option>
-            </select>
-            <select id="admin-user-select" onchange="renderAdminUserTasks()" style="border:1px solid var(--border2);border-radius:var(--r2);padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
-              <option value="">사용자 선택</option>
-            </select>
+      <div class="section-card admin-collapsible" id="admin-undone-section" style="margin-bottom:16px;">
+        <div class="section-head" onclick="toggleAdminSection('undone')">
+          <h3>⚠️ 주의 필요 업무</h3>
+          <div class="admin-head-meta">
+            <span id="admin-undone-summary" class="admin-head-summary">간략 요약</span>
+            <span id="admin-undone-toggle" class="admin-toggle-icon">▶ 펼치기</span>
           </div>
         </div>
-        <div id="admin-user-tasks" style="padding:0;"></div>
+        <div id="admin-undone-list" class="admin-collapsible-body" style="padding:14px 18px;"></div>
       </div>
 
       <!-- 전체 사용자 목록 + 팀 관리 -->
@@ -2890,12 +2940,29 @@ function getSelectedCategoryMeta(selectId){
   };
 }
 
-function renderCategoryOptions(){
+function renderCategoryOptions(selected='', selectedPart=''){
   const sel=document.getElementById('nc');
   if(!sel) return;
-  const current=sel.value||'';
-  sel.innerHTML=getCategoryOptionsHtml(current, '');
-  if(categoriesList.includes(current)) sel.value=current;
+
+  const currentMeta = selected || selectedPart
+    ? { category:selected||'', categoryPart:selectedPart||'' }
+    : getSelectedCategoryMeta(sel);
+
+  const current = currentMeta.category||'';
+  const currentPart = (currentMeta.categoryPart||'').trim();
+
+  sel.innerHTML=getCategoryOptionsHtml(current, currentPart);
+
+  if(!current) return;
+
+  const opts=[...sel.options];
+  let match=opts.find(o => (o.value||'')===current && (o.dataset.part||'')===currentPart);
+  if(!match && currentPart){
+    match=opts.find(o => (o.value||'')===current);
+  }
+  if(match){
+    sel.selectedIndex=opts.indexOf(match);
+  }
 }
 
 async function loadCategories(){
@@ -3754,6 +3821,8 @@ let teamsList=[]; // DB에 등록된 팀 목록
 let adminRole=''; // 'super' | 'team' | ''
 let adminAssignedTeam=''; // 팀 관리자의 담당 팀
 let adminAssignedPart=''; // 파트 관리자의 담당 파트 (글로벌/일본/신사업/'')
+let adminTaskStatusFilter=''; // 파트별 업무 목록 카드 클릭 필터
+let adminTaskViewRestoreState=null; // 카드 클릭 전 드롭다운 상태 복원용
 
 async function checkAdmin(){
   if(!currentSession?.user?.email)return false;
@@ -3774,6 +3843,7 @@ async function checkAdmin(){
 }
 
 function isSuperAdmin(){return adminRole==='super';}
+function getAdminAssignedParts(){ return parsePartValues(adminAssignedPart); }
 
 /* ── 기간 설정 ── */
 function setAdminPeriod(p,btn){
@@ -3856,19 +3926,7 @@ async function loadAdminData(){
     (profiles||[]).forEach(p=>{userProfiles[p.user_id]={name:p.name||'',team:p.team||'',part:serializePartValues(p.part||'')};});
 
     // 3) 기간 내 daily_tasks
-    // 팀 관리자: 담당 팀 user_id만 필터해서 가져옴
     let taskUrl=`${SB_URL}/rest/v1/daily_tasks?date=gte.${from}&date=lte.${to}&select=user_id,date,data&order=date.asc`;
-    let scopedUserIds=[];
-    if(!isSuperAdmin()&&adminAssignedPart){
-      // 담당 파트 프로필의 user_id 목록 추출
-      scopedUserIds=(profiles||[])
-        .filter(p=>hasPart(p.part,adminAssignedPart))
-        .map(p=>p.user_id);
-      if(scopedUserIds.length>0){
-        taskUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
-      }
-      // 없으면 빈 결과 (전체 조회 안 함)
-    }
     const taskRes=await fetchWithAuth(taskUrl);
     const allTasks=await taskRes.json();
     console.log('admin tasks:', allTasks?.length);
@@ -3877,9 +3935,6 @@ async function loadAdminData(){
     adminRecurringMap={};
     try{
       let recurringUrl=`${SB_URL}/rest/v1/recurring_tasks?select=user_id,data`;
-      if(scopedUserIds.length>0){
-        recurringUrl+=`&user_id=in.(${scopedUserIds.join(',')})`;
-      }
       const recurringRes=await fetchWithAuth(recurringUrl);
       const recurringRows=await recurringRes.json();
       (recurringRows||[]).forEach(row=>{
@@ -3912,17 +3967,16 @@ async function loadAdminData(){
       days:tasksByUser[u.user_id]||[]
     }));
 
-    // 파트 관리자는 담당 파트 사용자만 — 데이터 자체를 필터링
-    if(!isSuperAdmin()){
-      if(adminAssignedPart){
-        // 담당 파트만
-        adminAllData=allUsers.filter(u=>hasPart(u.part,adminAssignedPart));
-      } else {
-        // 담당 파트 미지정 → 전체 조회 (제한없음)
-        adminAllData=allUsers;
-      }
-    } else {
+    if(isSuperAdmin()){
       adminAllData=allUsers;
+    } else {
+      const assignedParts=getAdminAssignedParts();
+      adminAllData=allUsers.filter(u=>{
+        if(adminAssignedTeam && (u.team||'')!==adminAssignedTeam) return false;
+        if(u.email===currentSession?.user?.email) return false;
+        if(assignedParts.length && !assignedParts.some(p=>hasPart(u.part,p))) return false;
+        return true;
+      });
     }
 
     renderAdminTeamFilter();
@@ -3963,12 +4017,49 @@ function getPartDisplay(partValue){
   return parts.join(', ');
 }
 
+function getPartOrderValue(part){
+  const p=String(part||'').trim();
+  if(p==='글로벌') return 0;
+  if(p==='일본') return 1;
+  if(p==='신사업') return 2;
+  if(p==='공통') return 3;
+  if(!p || p==='(파트 미지정)' || p==='미지정') return 99;
+  return 50;
+}
+
+function compareCategoryName(a,b){
+  const aa=String(a||'').trim()||'(미분류)';
+  const bb=String(b||'').trim()||'(미분류)';
+  const aUn=aa==='(미분류)'||aa==='미분류';
+  const bUn=bb==='(미분류)'||bb==='미분류';
+  if(aUn && !bUn) return 1;
+  if(!aUn && bUn) return -1;
+  return aa.localeCompare(bb,'ko');
+}
+
+function compareAdminGroupLabel(a,b){
+  const aa=String(a||'');
+  const bb=String(b||'');
+  const [aTeam,aPartRaw=''] = aa.split(' · ');
+  const [bTeam,bPartRaw=''] = bb.split(' · ');
+  if(aa.includes(' · ') || bb.includes(' · ')){
+    const teamCmp=aTeam.localeCompare(bTeam,'ko');
+    if(teamCmp!==0) return teamCmp;
+    const partCmp=getPartOrderValue(aPartRaw)-getPartOrderValue(bPartRaw);
+    if(partCmp!==0) return partCmp;
+    return aa.localeCompare(bb,'ko');
+  }
+  const partCmp=getPartOrderValue(aa)-getPartOrderValue(bb);
+  if(partCmp!==0) return partCmp;
+  return aa.localeCompare(bb,'ko');
+}
+
 function getOrderedGroupKeys(groupObj, preferred=[]){
   const keys=Object.keys(groupObj||{});
   const preferredSet=new Set(preferred);
   const ordered=[];
   preferred.forEach(k=>{ if(keys.includes(k)) ordered.push(k); });
-  const rest=keys.filter(k=>!preferredSet.has(k)).sort((a,b)=>a.localeCompare(b,'ko'));
+  const rest=keys.filter(k=>!preferredSet.has(k)).sort(compareAdminGroupLabel);
   return [...ordered, ...rest];
 }
 
@@ -4017,8 +4108,9 @@ function getScopedPartsForUser(user){
     if(adminSuperPartFilter) return [adminSuperPartFilter];
     return [];
   }
-  if(adminAssignedPart) return [adminAssignedPart];
+  const assignedParts=getAdminAssignedParts();
   if(adminPartFilter) return [adminPartFilter];
+  if(assignedParts.length) return assignedParts;
   return parsePartValues(user?.part);
 }
 
@@ -4026,7 +4118,9 @@ function getTaskScopedParts(task, user){
   const explicitPart=String(task?.categoryPart||'').trim();
   if(explicitPart) return [explicitPart];
   const mappedParts=getCategoryMappedParts(task?.category||'');
-  if(mappedParts.length) return mappedParts;
+  if(mappedParts.length===1) return mappedParts;
+  // 공통/중복 구분(예: 글로벌·일본에 모두 존재)은 categoryPart 없으면 파트 판별 불가로 처리
+  if(mappedParts.length>1) return [];
   // 구분명은 있으나 파트 매핑을 못 찾는 경우에는 사용자 다중 파트 전체에 억지로 매핑하지 않음
   if(String(task?.category||'').trim()) return [];
   // 구분이 아예 없는 업무는 공통으로 취급
@@ -4042,9 +4136,36 @@ function taskMatchesAdminScope(task, user){
   return taskParts.some(p=>scopedParts.includes(p));
 }
 
+function getUserVisibleAdminParts(user){
+  const userParts=parsePartValues(user?.part);
+  if(isSuperAdmin()){
+    if(adminSuperPartFilter) return [adminSuperPartFilter];
+    return userParts.length ? userParts : ['(파트 미지정)'];
+  }
+
+  const assignedParts=getAdminAssignedParts();
+  if(!assignedParts.length) return userParts.length ? userParts : ['(파트 미지정)'];
+
+  const matchedUserParts=userParts.filter(p=>assignedParts.includes(p));
+  if(matchedUserParts.length) return matchedUserParts;
+
+  const taskParts=new Set();
+  (user?.days||[]).forEach(day=>{
+    (day.data?.tasks||[]).forEach(task=>{
+      if(!taskMatchesAdminScope(task,user)) return;
+      getTaskScopedParts(task,user)
+        .filter(p=>p && p!=='공통' && assignedParts.includes(p))
+        .forEach(p=>taskParts.add(p));
+    });
+  });
+  if(taskParts.size) return [...taskParts].sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b));
+  return ['(파트 미지정)'];
+}
+
 function getTeamManagerTaskGroup(task, user){
-  if(adminAssignedPart) return adminAssignedPart;
   if(adminPartFilter) return adminPartFilter;
+  const assignedParts=getAdminAssignedParts();
+  if(assignedParts.length===1) return assignedParts[0];
   const taskParts=getTaskScopedParts(task, user).filter(p=>p!=='공통');
   if(!taskParts.length) return '(미분류)';
   const userParts=parsePartValues(user?.part);
@@ -4056,19 +4177,14 @@ function renderAdminTeamFilter(){
   const wrap=document.getElementById('admin-team-filter-wrap');
   if(!wrap)return;
   if(!isSuperAdmin()){
-    if(adminAssignedPart){
-      // 담당 파트 고정 → 필터 숨김
-      wrap.parentElement.style.display='none';
-    } else {
-      // 전체 권한 관리자 → 파트 필터 표시
-      wrap.parentElement.style.display='flex';
-      wrap.innerHTML=
-        `<button class="ptab part-btn ${adminPartFilter===''?'active':''}" onclick="setAdminPartFilter('',this)">전체</button>`+
-        PARTS.map(p=>`<button class="ptab part-btn ${adminPartFilter===p?'active':''}" onclick="setAdminPartFilter('${esc(p)}',this)">${esc(p)}</button>`).join('');
-    }
+    wrap.parentElement.style.display='flex';
+    const scopedParts=getAdminAssignedParts();
+    const allowedParts=scopedParts.length ? PARTS.filter(p=>scopedParts.includes(p)) : [...PARTS];
+    wrap.innerHTML=
+      `<button class="ptab part-btn ${adminPartFilter===''?'active':''}" onclick="setAdminPartFilter('',this)">전체</button>`+
+      allowedParts.map(p=>`<button class="ptab part-btn ${adminPartFilter===p?'active':''}" onclick="setAdminPartFilter('${esc(p)}',this)">${esc(p)}</button>`).join('');
     return;
   }
-  // 슈퍼 관리자: 팀 + 파트 필터 표시
   wrap.parentElement.style.display='flex';
   wrap.innerHTML=`
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -4089,241 +4205,32 @@ function setAdminTeamFilter(part,btn){
   document.querySelectorAll('#admin-team-filter-wrap .team-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // 팀 변경 시 업무 목록 초기화
-  const sel=document.getElementById('admin-user-select');
-  if(sel)sel.value='';
-  const taskEl=document.getElementById('admin-user-tasks');
-  if(taskEl)taskEl.innerHTML='';
-  const {from,to}=getAdminDateRange();
-  renderAdminDashboard(from,to);
-}
-
-function setAdminSuperPartFilter(part,btn){
-  if(!isSuperAdmin())return;
-  adminSuperPartFilter=part;
-  document.querySelectorAll('#admin-team-filter-wrap .super-part-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  const sel=document.getElementById('admin-user-select');
-  if(sel)sel.value='';
-  const taskEl=document.getElementById('admin-user-tasks');
-  if(taskEl)taskEl.innerHTML='';
-  const {from,to}=getAdminDateRange();
-  renderAdminDashboard(from,to);
-}
-
-function setAdminPartFilter(part,btn){
-  adminPartFilter=part;
-  document.querySelectorAll('#admin-team-filter-wrap .part-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  // 파트 변경 시 업무 목록 초기화
-  const sel=document.getElementById('admin-user-select');
-  if(sel)sel.value='';
-  const taskEl=document.getElementById('admin-user-tasks');
-  if(taskEl)taskEl.innerHTML='';
-  const {from,to}=getAdminDateRange();
-  renderAdminDashboard(from,to);
-}
-
-function getFilteredUsers(){
-  if(!isSuperAdmin()){
-    // 팀 관리자: 파트 필터 적용
-    if(!adminPartFilter)return adminAllData;
-    return adminAllData.filter(u=>hasPart(u.part,adminPartFilter));
-  }
-  // 슈퍼 관리자: 팀 + 파트 필터 동시 적용
-  return adminAllData.filter(u=>{
-    if(adminTeamFilter && u.team!==adminTeamFilter) return false;
-    if(adminSuperPartFilter && !hasPart(u.part,adminSuperPartFilter)) return false;
-    return true;
-  });
-}
-
-function toggleAdminRates(){
-  const el=document.getElementById('admin-user-rates');
-  const btn=document.getElementById('admin-rates-toggle');
-  if(!el||!btn)return;
-  const isOpen=el.style.display!=='none';
-  el.style.display=isOpen?'none':'block';
-  btn.textContent=isOpen?'▶ 펼치기':'▼ 접기';
-}
-
-/* ── 대시보드 렌더 ── */
-async function renderAdminDashboard(from,to){
-  await loadAllCategories();
-  // 역할 배지 표시
-  const badge=document.getElementById('admin-role-badge');
-  const desc=document.getElementById('admin-role-desc');
-  if(badge){
-    if(isSuperAdmin()){
-      badge.textContent='슈퍼 관리자';
-      badge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;background:var(--red-soft);color:var(--red);font-weight:600;';
-      if(desc)desc.textContent='전체 팀 현황을 한눈에 확인해요';
-    } else {
-      badge.textContent=adminAssignedTeam?`팀 관리자 (${adminAssignedTeam})`:'팀 관리자';
-      badge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;background:var(--blue-soft);color:var(--blue);font-weight:600;';
-      if(desc)desc.textContent=adminAssignedTeam?`${adminAssignedTeam} 팀 현황을 확인해요`:'담당 팀 현황을 확인해요';
-    }
-  }
-  renderAdminTeamFilter();
-
-  const filtered=getFilteredUsers();
-  const totalUsers=filtered.length;
-  const activeUsers=filtered.filter(u=>u.days.length>0).length;
-  let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
-  filtered.forEach(u=>u.days.forEach(d=>{
-    const tasks=(d.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,u));
-    totalTasks+=tasks.length;
-    totalDone+=tasks.filter(t=>t.done).length;
-    totalUndone+=tasks.filter(t=>!t.done).length;
-    totalCarry+=tasks.filter(t=>t.carriedFrom).length;
-  }));
-  const avgRate=totalTasks?Math.round(totalDone/totalTasks*100):0;
-  const filterLabel=isSuperAdmin()
-    ? (((adminTeamFilter||adminSuperPartFilter)
-        ? ` (${[adminTeamFilter,adminSuperPartFilter].filter(Boolean).join(' · ')})`
-        : ''))
-    : ((adminAssignedPart||adminPartFilter)?` (${adminAssignedPart||adminPartFilter})`:'' );
-
-  document.getElementById('admin-summary-cards').innerHTML=`
-    <div class="sum-card"><div class="sum-lbl">사용자${filterLabel}</div><div class="sum-val">${totalUsers}명</div><div class="sum-sub">활성 ${activeUsers}명</div></div>
-    <div class="sum-card"><div class="sum-lbl">평균 달성률</div><div class="sum-val">${avgRate}%</div><div class="sum-sub">${from} ~ ${to}</div></div>
-    <div class="sum-card"><div class="sum-lbl">미완료 업무 수 (예정업무 포함)</div><div class="sum-val" style="color:var(--red);">${totalUndone}</div><div class="sum-sub">전체 ${totalTasks}개 중</div></div>
-    <div class="sum-card"><div class="sum-lbl">이월 횟수</div><div class="sum-val" style="color:var(--blue);">${totalCarry}</div><div class="sum-sub">기간 내 합계</div></div>
-  `;
-
-  const rateEl=document.getElementById('admin-user-rates');
-  if(!filtered.length){
-    rateEl.innerHTML='<div style="color:var(--text3);font-size:13px;">데이터가 없어요</div>';
-  } else {
-    let rateHtml='';
-    if(!isSuperAdmin()){
-      const partGroups={};
-      filtered.forEach(u=>{
-        const keys=(adminAssignedPart||adminPartFilter)
-          ? [adminAssignedPart||adminPartFilter]
-          : (parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)']);
-        keys.forEach(p=>{
-          if(!partGroups[p])partGroups[p]=[];
-          if(!partGroups[p].some(x=>x.user_id===u.user_id)) partGroups[p].push(u);
-        });
-      });
-      const orderedPartKeys=getOrderedGroupKeys(partGroups,[...PARTS,'(파트 미지정)']);
-      orderedPartKeys.forEach(part=>{
-        const users=partGroups[part];
-        if(!users||!users.length)return;
-        rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(part)}</div>`;
-        users.forEach(u=>{
-          const tasks=u.days.flatMap(d=>(d.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,{...u, part: part==='(파트 미지정)' ? '' : (adminAssignedPart||adminPartFilter||part)})));
-          const total=tasks.length,done=tasks.filter(t=>t.done).length;
-          const rate=total?Math.round(done/total*100):0;
-          const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
-          rateHtml+=`<div class="admin-user-row">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
-              <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
-            </div>
-            <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
-            <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
-            <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
-          </div>`;
-        });
-      });
-    } else {
-      const superTeamGroups={};
-      filtered.forEach(u=>{
-        const t=u.team||'(팀 미지정)';
-        if(!superTeamGroups[t])superTeamGroups[t]=[];
-        superTeamGroups[t].push(u);
-      });
-      const orderedTeamKeys=getOrderedGroupKeys(superTeamGroups,[...teamsList,'(팀 미지정)']);
-      orderedTeamKeys.forEach(team=>{
-        const users=superTeamGroups[team];
-        if(!users||!users.length)return;
-        rateHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(team)}</div>`;
-        users.forEach(u=>{
-          const tasks=u.days.flatMap(d=>d.data?.tasks||[]);
-          const total=tasks.length,done=tasks.filter(t=>t.done).length;
-          const rate=total?Math.round(done/total*100):0;
-          const color=rate>=80?'var(--green)':rate>=50?'var(--accent)':'var(--red)';
-          rateHtml+=`<div class="admin-user-row">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.name)}</div>
-              <div style="font-size:11px;color:var(--text3);">${esc(u.email)}</div>
-            </div>
-            <div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${rate}%;background:${color};"></div></div>
-            <div class="admin-rate-pct" style="color:${color};">${rate}%</div>
-            <div style="font-size:11px;color:var(--text3);width:60px;text-align:right;">${done}/${total}개</div>
-          </div>`;
-        });
-      });
-    }
-    rateEl.innerHTML=rateHtml||'<div style="color:var(--text3);font-size:13px;">표시할 달성률 데이터가 없어요</div>';
+  const partSel=document.getElementById('admin-part-select');
+  const currentSelectedPart=partSel?.value||'';
+  if(partSel){
+    const prevPart=currentSelectedPart;
+    const availableParts=[];
+    filtered.forEach(u=>parsePartValues(u.part).forEach(p=>{ if(p && !availableParts.includes(p)) availableParts.push(p); }));
+    const orderedAvailableParts=[...PARTS.filter(p=>availableParts.includes(p)), ...availableParts.filter(p=>!PARTS.includes(p))];
+    let partOptions='<option value="">전체 파트</option>';
+    orderedAvailableParts.forEach(part=>{ partOptions += `<option value="${esc(part)}">${esc(part)}</option>`; });
+    if(filtered.some(u=>!parsePartValues(u.part).length)) partOptions += '<option value="(파트 미지정)">(파트 미지정)</option>';
+    partSel.innerHTML=partOptions;
+    const availablePartSet=new Set(orderedAvailableParts);
+    if(filtered.some(u=>!parsePartValues(u.part).length)) availablePartSet.add('(파트 미지정)');
+    if(prevPart && availablePartSet.has(prevPart)) partSel.value=prevPart;
   }
 
-  const undoneEl=document.getElementById('admin-undone-list');
-  const today=todayStr();
-  const undoneItems=[];
-  filtered.forEach(u=>u.days.forEach(d=>{
-    if(d.date>today)return;
-    (d.data?.tasks||[])
-      .filter(t=>!t.done)
-      .filter(t=>taskMatchesAdminScope(t,u))
-      .forEach(t=>{
-        undoneItems.push({
-          name:u.name,
-          email:u.email,
-          team:u.team,
-          part:u.part,
-          date:d.date,
-          task:t.name,
-          category:t.category||'',
-          carry:t.carriedFrom||'',
-          overdue:d.date<today
-        });
-      });
-  }));
-  if(!undoneItems.length){
-    undoneEl.innerHTML='<div style="color:var(--green);font-size:13px;">✅ 현재 시점 기준 미완료 업무가 없어요!</div>';
-  } else {
-    const groupKeyFn = isSuperAdmin()
-      ? (item => item.team||'(팀 미지정)')
-      : (item => getTeamManagerTaskGroup(item, item));
-    const preferredKeys = isSuperAdmin()
-      ? [...teamsList,'(팀 미지정)']
-      : ['공통', ...PARTS, '(파트 미지정)'];
-
-    const undoneGroups={};
-    undoneItems.forEach(item=>{
-      const key=groupKeyFn(item);
-      if(!undoneGroups[key])undoneGroups[key]=[];
-      undoneGroups[key].push(item);
-    });
-
-    let undoneHtml=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">총 ${undoneItems.length}개 · 미래 일정 제외</div>`;
-    getOrderedGroupKeys(undoneGroups, preferredKeys).forEach(groupName=>{
-      const items=undoneGroups[groupName];
-      if(!items||!items.length)return;
-      undoneHtml+=`<div style="font-size:11px;font-weight:600;color:var(--accent2);padding:8px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">${esc(groupName)}</div>`;
-      undoneHtml+=items
-        .sort((a,b)=>a.date===b.date ? a.name.localeCompare(b.name,'ko') : a.date.localeCompare(b.date))
-        .map(item=>`
-          <div class="admin-undone-item">
-            <div class="admin-undone-name">
-              ${item.carry?'🔄 ':''}${item.overdue?'⏰ ':''}${item.category?`[${esc(item.category)}] `:''}${esc(item.task)}
-            </div>
-            <div class="admin-undone-user">${esc(item.name)} · ${item.date}${item.overdue?' · 미완료 유지':''}</div>
-          </div>`).join('');
-    });
-    undoneEl.innerHTML=undoneHtml;
-  }
+  const activeSelectedPart=document.getElementById('admin-part-select')?.value||'';
 
   const sel=document.getElementById('admin-user-select');
   let selHtml='<option value="">사용자 선택</option>';
   const selectGroups={};
   filtered.forEach(u=>{
-    const groupKeys=isSuperAdmin()
-      ? (parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)'])
-      : [getPartDisplay(u.part)||'(파트 미지정)'];
+    const userParts=parsePartValues(u.part);
+    const groupKeys=userParts.length ? userParts : ['(파트 미지정)'];
     groupKeys.forEach(key=>{
+      if(activeSelectedPart && key!==activeSelectedPart) return;
       if(!selectGroups[key])selectGroups[key]=[];
       if(!selectGroups[key].some(x=>x.user_id===u.user_id)) selectGroups[key].push(u);
     });
@@ -4332,17 +4239,20 @@ async function renderAdminDashboard(from,to){
   getOrderedGroupKeys(selectGroups, selectPreferredKeys).forEach(groupName=>{
     const users=selectGroups[groupName];
     if(!users||!users.length)return;
-    selHtml+=`<optgroup label="${esc(groupName)}">`;
-    users.sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko')).forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)} (${esc(u.email)})</option>`; });
-    selHtml+=`</optgroup>`;
+    if(!activeSelectedPart) selHtml+=`<optgroup label="${esc(groupName)}">`;
+    users.sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko')).forEach(u=>{ selHtml+=`<option value="${esc(u.user_id)}">${esc(u.name)}</option>`; });
+    if(!activeSelectedPart) selHtml+='</optgroup>';
   });
   sel.innerHTML=selHtml;
+  if(sel.value && !sel.querySelector(`option[value="${CSS.escape(sel.value)}"]`)) sel.value='';
 
   const catSel=document.getElementById('admin-cat-filter');
   if(catSel){
     const prevCat=catSel.value;
     const scopedParts=['공통'];
-    if(!isSuperAdmin()){
+    if(activeSelectedPart){
+      if(activeSelectedPart!=='(파트 미지정)' && !scopedParts.includes(activeSelectedPart)) scopedParts.push(activeSelectedPart);
+    } else if(!isSuperAdmin()){
       if(adminAssignedPart){
         if(!scopedParts.includes(adminAssignedPart)) scopedParts.push(adminAssignedPart);
       } else if(adminPartFilter){
@@ -4362,73 +4272,72 @@ async function renderAdminDashboard(from,to){
     });
     filtered.forEach(u=>{
       const userParts=parsePartValues(u.part).filter(p=>scopedParts.includes(p));
+      if(activeSelectedPart){
+        if(activeSelectedPart==='(파트 미지정)'){
+          if(userParts.length) return;
+        } else if(!userParts.includes(activeSelectedPart)) return;
+      }
       (u.days||[]).forEach(d=>(d.data?.tasks||[]).forEach(t=>{
         if(!t.category) return;
         let matchedParts=(allCategoriesData||[]).filter(c=>c?.name===t.category && scopedParts.includes(c.part||'공통')).map(c=>c.part||'공통');
+        if(activeSelectedPart && activeSelectedPart!=='(파트 미지정)') matchedParts=matchedParts.filter(part=>part==='공통' || part===activeSelectedPart);
         if(matchedParts.length){ matchedParts.forEach(part=>{ catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }); return; }
         if((catsByPart['공통']||new Set()).has(t.category)){ catsByPart['공통'].add(t.category); return; }
         const specificParts=scopedParts.filter(p=>p!=='공통');
-        if(specificParts.length===1){ const part=specificParts[0]; catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }
+        if(activeSelectedPart && activeSelectedPart!=='(파트 미지정)'){
+          catsByPart[activeSelectedPart] ??= new Set();
+          catsByPart[activeSelectedPart].add(t.category);
+        } else if(specificParts.length===1){ const part=specificParts[0]; catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }
         else if(userParts.length){ userParts.forEach(part=>{ catsByPart[part] ??= new Set(); catsByPart[part].add(t.category); }); }
         else { catsByPart['공통'].add(t.category); }
       }));
     });
-    const orderedParts=['공통', ...PARTS.filter(p=>scopedParts.includes(p)), ...scopedParts.filter(p=>p!=='공통' && !PARTS.includes(p))];
-    let options='<option value="">전체 구분</option>';
-    orderedParts.forEach(part=>{
-      const cats=[...(catsByPart[part]||new Set())].sort((a,b)=>a.localeCompare(b,'ko'));
-      if(!cats.length) return;
-      options += `<optgroup label="${esc(part)}">` + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('') + '</optgroup>';
-    });
-    catSel.innerHTML=options;
-    const availableCats=new Set();
-    orderedParts.forEach(part=>[...(catsByPart[part]||new Set())].forEach(c=>availableCats.add(c)));
-    if(prevCat && availableCats.has(prevCat)) catSel.value=prevCat;
-  }
 
-// 전체 사용자 목록 + 팀/이름 편집
+    let catHtml='<option value="">전체 구분</option>';
+    if(activeSelectedPart){
+      const singlePartOrder=(activeSelectedPart==='(파트 미지정)') ? ['공통'] : ['공통', activeSelectedPart];
+      singlePartOrder.forEach(part=>{
+        const cats=[...(catsByPart[part]||[])].sort(compareCategoryName);
+        if(!cats.length) return;
+        if(activeSelectedPart==='(파트 미지정)' || singlePartOrder.length===1){
+          cats.forEach(cat=>{ catHtml += `<option value="${esc(cat)}">${esc(cat)}</option>`; });
+        } else {
+          const label=part==='공통' ? '공통' : part;
+          catHtml += `<optgroup label="${esc(label)}">`;
+          cats.forEach(cat=>{ catHtml += `<option value="${esc(cat)}">${esc(cat)}</option>`; });
+          catHtml += '</optgroup>';
+        }
+      });
+    } else {
+      const orderedParts=['공통', ...PARTS.filter(p=>scopedParts.includes(p)), ...scopedParts.filter(p=>p!=='공통' && !PARTS.includes(p))];
+      orderedParts.forEach(part=>{
+        const cats=[...(catsByPart[part]||[])].sort(compareCategoryName);
+        if(!cats.length) return;
+        catHtml += `<optgroup label="${esc(part)}">`;
+        cats.forEach(cat=>{ catHtml += `<option value="${esc(cat)}">${esc(cat)}</option>`; });
+        catHtml += '</optgroup>';
+      });
+    }
+    catSel.innerHTML=catHtml;
+    if(prevCat && catSel.querySelector(`option[value="${CSS.escape(prevCat)}"]`)) catSel.value=prevCat;
+  }
+  renderAdminUserProfiles();
+  if(isSuperAdmin()) loadAdminList();
+  ensureSuperAdminManagementVisible();
+  renderAdminUserTasks();
+}
+
+
+function renderAdminUserProfiles(){
   const userListEl=document.getElementById('admin-user-list');
-  // 팀 관리자는 팀원 목록만 보여줌 (이름/팀 수정 불가)
-  if(!isSuperAdmin()){
-    const partOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
-    userListEl.innerHTML=`
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">담당 팀원의 파트를 다중 선택으로 설정할 수 있어요.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:var(--surface2);">
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이름</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);">이메일</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">파트</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">기록 일수</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);">저장</th>
-        </tr></thead>
-        <tbody>
-          ${adminAllData.map(u=>`
-            <tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 10px;font-weight:500;">${esc(u.name)}</td>
-              <td style="padding:8px 10px;color:var(--text2);">${esc(u.email)}</td>
-              <td style="padding:6px 10px;text-align:center;">
-                <select id="ppart_${u.user_id}" multiple size="3" style="min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
-                  ${partOpts}
-                </select>
-              </td>
-              <td style="padding:8px 10px;text-align:center;color:var(--text3);">${u.total_days}일</td>
-              <td style="padding:6px 10px;text-align:center;"><button onclick="saveUserProfile('${u.user_id}','${esc(u.email)}')" style="padding:4px 10px;background:var(--accent);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">저장</button></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
-    // 파트 드롭다운 현재값 반영
-    adminAllData.forEach(u=>{
-      const sel=document.getElementById('ppart_'+u.user_id);
-      if(sel){
-        const parts=parsePartValues(u.part);
-        [...sel.options].forEach(opt=>{opt.selected=parts.includes(opt.value);});
-      }
-    });
-    return;
-  }
-
+  const settingsSec=document.getElementById('admin-settings-section');
+  const userListSec=document.getElementById('admin-user-list-section');
+  if(settingsSec) settingsSec.style.display=isSuperAdmin()?'block':'none';
+  if(userListSec) userListSec.style.display=isSuperAdmin()?'block':'none';
+  if(!isSuperAdmin()) return;
+  if(!userListEl) return;
   const teamSelectOpts=`<option value="">미지정</option>`+teamsList.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
-  const superPartOpts=`<option value="">미지정</option>`+PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const superPartOpts=PARTS.map(p=>`<option value="${p}">${p}</option>`).join('');
   userListEl.innerHTML=`
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">이름·팀·파트를 설정하면 관리자 화면에서 구분해서 볼 수 있어요. 파트는 다중 선택할 수 있어요.</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -4451,7 +4360,7 @@ async function renderAdminDashboard(from,to){
               </select>
             </td>
             <td style="padding:6px 10px;text-align:center;">
-              <select id="ppart_${u.user_id}" multiple size="3" style="width:100%;min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              <select id="ppart_${u.user_id}" multiple size="4" style="width:100%;min-width:110px;border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
                 ${superPartOpts}
               </select>
             </td>
@@ -4460,28 +4369,23 @@ async function renderAdminDashboard(from,to){
           </tr>`).join('')}
       </tbody>
     </table>`;
-  // 드롭다운 현재값 반영
   adminAllData.forEach(u=>{
     const tsel=document.getElementById('pteam_'+u.user_id);
-    if(tsel)tsel.value=u.team||'';
+    if(tsel) tsel.value=u.team||'';
     const psel=document.getElementById('ppart_'+u.user_id);
     if(psel){
       const parts=parsePartValues(u.part);
       [...psel.options].forEach(opt=>{opt.selected=parts.includes(opt.value);});
     }
   });
-
-  // 슈퍼 관리자만: 전체사용자목록 + 관리자설정 표시
-  const settingsSec=document.getElementById('admin-settings-section');
-  const userListSec=document.getElementById('admin-user-list-section');
-  if(settingsSec)settingsSec.style.display=isSuperAdmin()?'block':'none';
-  if(userListSec)userListSec.style.display=isSuperAdmin()?'block':'none';
-
-  loadAdminList();
 }
 
 /* ── 사용자 프로필 저장 ── */
 async function saveUserProfile(userId,email){
+  if(!isSuperAdmin()){
+    toast('슈퍼 관리자만 사용자 목록의 팀/파트를 설정할 수 있어요');
+    return;
+  }
   const name=document.getElementById('pname_'+userId)?.value||'';
   const team=document.getElementById('pteam_'+userId)?.value||'';
   const partSelect=document.getElementById('ppart_'+userId);
@@ -4519,66 +4423,208 @@ async function saveUserProfile(userId,email){
   }catch(e){toast('오류: '+e.message);}
 }
 
-/* ── 사용자별 업무 목록 ── */
-function renderAdminUserTasks(){
-  const uid=document.getElementById('admin-user-select').value;
-  const catFilter=document.getElementById('admin-cat-filter')?.value||'';
-  const el=document.getElementById('admin-user-tasks');
+/* ── 파트별 업무 목록 ── */
+function setAdminTaskStatusFilter(status, part){
+  const partSel=document.getElementById('admin-part-select');
+  const catSel=document.getElementById('admin-cat-filter');
+  const userSel=document.getElementById('admin-user-select');
+  const nextPart=(typeof part!=='undefined' && part!==null) ? (part||'') : (partSel?.value||'');
+  const sameStatus=(adminTaskStatusFilter===status && (!partSel || partSel.value===nextPart));
+  const clearRequested=(!status) || sameStatus;
 
-  let users=[];
-  if(uid){
-    const user=adminAllData.find(u=>u.user_id===uid);
-    if(user) users=[user];
-  } else if(catFilter){
-    users=getFilteredUsers();
-  } else {
-    el.innerHTML='';
+  if(clearRequested){
+    adminTaskStatusFilter='';
+    const restore=adminTaskViewRestoreState;
+    adminTaskViewRestoreState=null;
+    if(restore){
+      if(partSel) partSel.value=restore.part||'';
+      refreshAdminTaskFilters(getFilteredUsers());
+      if(catSel) catSel.value=restore.category||'';
+      if(userSel) userSel.value=restore.user||'';
+    }else{
+      if(partSel) partSel.value='';
+      if(catSel) catSel.value='';
+      if(userSel) userSel.value='';
+      refreshAdminTaskFilters(getFilteredUsers());
+    }
+    renderAdminUserTasks();
     return;
   }
 
-  if(!users.length){
-    el.innerHTML='<div style="padding:14px 18px;font-size:13px;color:var(--text3);">이 기간에 기록이 없어요</div>';
+  if(!adminTaskStatusFilter){
+    adminTaskViewRestoreState={
+      part:partSel?.value||'',
+      category:catSel?.value||'',
+      user:userSel?.value||''
+    };
+  }
+
+  adminTaskStatusFilter=status;
+  if(partSel) partSel.value=nextPart;
+  if(catSel) catSel.value='';
+  if(userSel) userSel.value='';
+  refreshAdminTaskFilters(getFilteredUsers());
+  renderAdminUserTasks();
+}
+
+function getAdminStatusFilterLabel(status){
+  return status==='done' ? '완료 업무' : status==='undone' ? '미완료 업무' : status==='carry' ? '이월/반복 업무' : '';
+}
+
+function renderAdminUserTasks(){
+  const selectedPart=document.getElementById('admin-part-select')?.value||'';
+  const uid=document.getElementById('admin-user-select')?.value||'';
+  const catFilter=document.getElementById('admin-cat-filter')?.value||'';
+  const el=document.getElementById('admin-user-tasks');
+  const summaryEl=document.getElementById('admin-tasks-summary');
+  const statusBar=document.getElementById('admin-task-status-bar');
+  if(!el) return;
+
+  const filteredUsers=getFilteredUsers();
+  const entries=[];
+  filteredUsers.forEach(user=>{
+    (user.days||[]).forEach(d=>{
+      (d.data?.tasks||[])
+        .filter(t=>taskMatchesAdminScope(t,user))
+        .forEach(task=>{
+          const part=getPrimaryDisplayPart(user,task)||'(파트 미지정)';
+          if(selectedPart && part!==selectedPart) return;
+          if(uid && user.user_id!==uid) return;
+          if(catFilter && (task.category||'')!==catFilter) return;
+          if(adminTaskStatusFilter==='done' && !task.done) return;
+          if(adminTaskStatusFilter==='undone' && task.done) return;
+          if(adminTaskStatusFilter==='carry' && !(task.carriedFrom||task.isRecurring)) return;
+          entries.push({user,date:d.date,task,part});
+        });
+    });
+  });
+
+  if(statusBar){
+    if(adminTaskStatusFilter){
+      statusBar.style.display='flex';
+      statusBar.style.alignItems='center';
+      statusBar.style.justifyContent='space-between';
+      statusBar.style.gap='12px';
+      statusBar.style.flexWrap='wrap';
+      statusBar.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:white;border:1px solid #d9e6ff;font-size:11px;font-weight:600;color:var(--accent);">필터 적용됨</span><div style="font-size:13px;color:var(--text2);">현재 보기: <strong style="color:var(--text);">${esc(selectedPart||'전체 파트')}</strong> / <strong style="color:var(--accent);">${getAdminStatusFilterLabel(adminTaskStatusFilter)}</strong></div></div><button onclick="setAdminTaskStatusFilter('')" style="padding:8px 14px;border:1px solid var(--accent);border-radius:999px;background:white;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;box-shadow:0 1px 4px rgba(59,95,160,.10);">전체 보기</button>`;
+    }else{
+      statusBar.style.display='none';
+      statusBar.innerHTML='';
+    }
+  }
+
+  if(!entries.length){
+    el.innerHTML='<div class="admin-empty-inline">표시할 업무가 없어요</div>';
+    if(summaryEl) summaryEl.textContent='0건';
     return;
+  }
+
+  if(summaryEl){
+    const userCount=new Set(entries.map(e=>e.user.user_id)).size;
+    const catCount=new Set(entries.map(e=>e.task.category||'(미분류)')).size;
+    const partCount=new Set(entries.map(e=>e.part||'(파트 미지정)')).size;
+    summaryEl.textContent=`${entries.length}건 · ${partCount}개 파트 · ${catCount}개 업무구분 · ${userCount}명`;
   }
 
   const priIcon=['','🟢','🟡','🟠','🔴'];
-  let html='';
+  const getMinutesLink=(task)=>{
+    if(!task.minutesTitle) return '';
+    const payload=JSON.stringify({
+      title:task.minutesTitle,
+      datetime:task.minutesDatetime,
+      attendees:task.minutesAttendees,
+      content:task.minutesContent,
+      action:task.minutesAction
+    }).replace(/"/g,'&quot;');
+    return `<span onclick="showAdminMinutes(${payload})" style="font-size:11px;color:var(--blue);cursor:pointer;text-decoration:underline;">회의록</span>`;
+  };
 
-  users.forEach(user=>{
-    let userHtml='';
-    (user.days||[]).forEach(d=>{
-      const [y,m,dd]=d.date.split('-').map(Number);
-      const dow=new Date(y,m-1,dd).getDay();
-      const tasks=(d.data?.tasks||[]).filter(t=>!catFilter||t.category===catFilter);
-      if(!tasks.length&&catFilter)return;
-      userHtml+=`<div style="border-bottom:2px solid var(--border);padding:10px 18px;">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">${d.date} (${DAYS[dow]}요일)${d.data?.agenda?' · '+agendaDisp(d.data.agenda):''}</div>
-        ${tasks.length?tasks.map(t=>{
-          const noteShort=t.note&&t.note.length>20?t.note.slice(0,20)+'…':t.note||'';
-          const noteFull=t.note||'';
-          const hasMin=!!(t.minutesTitle);
-          return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border);">
-            <span style="flex-shrink:0;color:${t.done?'var(--green)':'var(--red)'};">${t.done?'✓':'○'}</span>
-            <span style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.carriedFrom?'🔄 ':''}${t.isRecurring?'🔁 ':''}${esc(t.category?`[${t.category}] `:'')}${esc(t.name)}</span>
-            ${noteShort?`<span title="${esc(noteFull)}" style="flex-shrink:0;font-size:11px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;border-bottom:1px dashed var(--border2);">📎 ${esc(noteShort)}</span>`:''}
-            ${hasMin?`<span onclick="showAdminMinutes(${JSON.stringify({title:t.minutesTitle,datetime:t.minutesDatetime,attendees:t.minutesAttendees,content:t.minutesContent,action:t.minutesAction}).replace(/"/g,'&quot;')})" style="flex-shrink:0;font-size:11px;color:var(--blue);cursor:pointer;text-decoration:underline;">📋 회의록</span>`:''}
-            <span style="flex-shrink:0;width:20px;text-align:center;">${priIcon[t.priority]||''}</span>
-          </div>`;
-        }).join('')
-        :'<div style="font-size:12px;color:var(--text3);">업무 없음</div>'}
-        ${d.data?.memo?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:4px;">💬 ${esc(d.data.memo)}</div>`:''}
-      </div>`;
-    });
-
-    if(userHtml){
-      html+=`<div style="padding:0;">
-        ${(!uid&&catFilter)?`<div style="padding:12px 18px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);">${esc(user.name)} <span style="font-weight:400;color:var(--text3);">(${esc(user.email)})</span></div>`:''}
-        ${userHtml}
-      </div>`;
-    }
+  const partMap={};
+  entries.forEach(e=>{
+    const part=e.part||'(파트 미지정)';
+    partMap[part] ??= {items:[], catMap:{}, userMap:{}};
+    partMap[part].items.push(e);
+    const cat=e.task.category||'(미분류)';
+    partMap[part].catMap[cat]=(partMap[part].catMap[cat]||0)+1;
+    partMap[part].userMap[e.user.name]=(partMap[part].userMap[e.user.name]||0)+1;
   });
 
-  el.innerHTML=html||'<div style="padding:14px 18px;font-size:13px;color:var(--text3);">표시할 업무가 없어요</div>';
+  let html='';
+  getOrderedGroupKeys(partMap,[...PARTS,'(파트 미지정)']).forEach(part=>{
+    const info=partMap[part];
+    if(!info) return;
+    const topCats=Object.entries(info.catMap).sort((a,b)=> b[1]===a[1] ? compareCategoryName(a[0],b[0]) : b[1]-a[1]);
+    const topUsers=Object.entries(info.userMap).sort((a,b)=> b[1]===a[1] ? a[0].localeCompare(b[0],'ko') : b[1]-a[1]);
+    const doneCnt=info.items.filter(v=>v.task.done).length;
+    const undoneCnt=info.items.length-doneCnt;
+    const carryCnt=info.items.filter(v=>v.task.carriedFrom||v.task.isRecurring).length;
+
+    html+=`<div class="admin-group-card" style="padding:14px 16px;"><div class="admin-group-head"><div><div class="admin-group-title">${esc(part)}</div><div class="admin-group-sub">업무 ${info.items.length}건 · 사용자 ${Object.keys(info.userMap).length}명</div></div><span class="admin-pill">파트 기준</span></div>`;
+
+    if(!uid && !catFilter && !adminTaskStatusFilter){
+      html+=`<div class="admin-simple-list">
+        <div class="admin-mini-grid">
+          <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('done', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">완료</div><div class="admin-mini-value">${doneCnt}</div><div class="admin-mini-sub">완료율 ${Math.round(doneCnt/info.items.length*100)}%</div></div>
+          <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('undone', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">미완료</div><div class="admin-mini-value" style="color:var(--red);">${undoneCnt}</div><div class="admin-mini-sub">현재 남은 업무</div></div>
+          <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('carry', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">이월/반복</div><div class="admin-mini-value">${carryCnt}</div><div class="admin-mini-sub">운영성 업무 포함</div></div>
+        </div>
+        <div>
+          <div class="admin-simple-meta" style="margin-bottom:6px;">업무구분별 현황</div>
+          <div class="admin-tag-row">${topCats.slice(0,8).map(([cat,cnt])=>`<span class="admin-tag">${esc(cat)} ${cnt}건</span>`).join('')}</div>
+        </div>
+        <div>
+          <div class="admin-simple-meta" style="margin-bottom:6px;">사용자별 업무량</div>
+          <div class="admin-tag-row">${topUsers.slice(0,6).map(([name,cnt])=>`<span class="admin-tag">${esc(name)} ${cnt}건</span>`).join('')}</div>
+        </div>
+      </div></div>`;
+      return;
+    }
+
+    const byCategory={};
+    info.items.forEach(e=>{
+      const cat=e.task.category||'(미분류)';
+      byCategory[cat] ??= [];
+      byCategory[cat].push(e);
+    });
+
+    html+='<div>';
+    Object.keys(byCategory).sort(compareCategoryName).forEach(cat=>{
+      const citems=byCategory[cat].sort((a,b)=>{
+        if(a.date!==b.date) return a.date.localeCompare(b.date);
+        const userCmp=(a.user.name||a.user.email).localeCompare((b.user.name||b.user.email),'ko');
+        if(userCmp!==0) return userCmp;
+        return (a.task.name||'').localeCompare((b.task.name||''),'ko');
+      });
+      html+=`<div class="admin-category-block"><div class="admin-category-title">${esc(cat)} · ${citems.length}건</div>`;
+      citems.forEach(({date,task,user})=>{
+        const noteShort=task.note&&task.note.length>26?task.note.slice(0,26)+'…':task.note||'';
+        html+=`<div class="admin-simple-item">
+          <div class="admin-simple-main">
+            <div class="admin-simple-title">${task.carriedFrom?'🔄 ':''}${task.isRecurring?'🔁 ':''}${priIcon[task.priority]||''} ${esc(task.name)}</div>
+            <div class="admin-simple-meta">${date} · ${esc(user.name)}${user.team?` · ${esc(user.team)}`:''}</div>
+            ${noteShort?`<div class="admin-simple-meta">📎 ${esc(noteShort)}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+            <span class="admin-pill" style="background:${task.done?'var(--green-soft)':'var(--red-soft)'};color:${task.done?'var(--green)':'var(--red)'};">${task.done?'완료':'미완료'}</span>
+            ${getMinutesLink(task)}
+          </div>
+        </div>`;
+      });
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+
+  el.innerHTML=html||'<div class="admin-empty-inline">표시할 업무가 없어요</div>';
+}
+
+function handleAdminPartSelectChange(){
+  adminTaskStatusFilter='';
+  adminTaskViewRestoreState=null;
+  const filtered=getFilteredUsers();
+  refreshAdminTaskFilters(filtered);
+  ensureSuperAdminManagementVisible();
+  renderAdminUserTasks();
 }
 
 function showAdminMinutes(obj){
@@ -4594,6 +4640,337 @@ function showAdminMinutes(obj){
   document.getElementById('note-view-content').innerHTML=html;
   document.getElementById('note-view-minutes-wrap').style.display='none';
   document.getElementById('note-view-modal').classList.add('open');
+}
+
+
+
+/* ── 관리자 탭 보정 함수 (v363) ── */
+function getFilteredUsers(){
+  if(!isSuperAdmin()){
+    const scopedPart=adminPartFilter||'';
+    return adminAllData.filter(u=>{
+      if(!scopedPart) return true;
+      return (u.days||[]).some(day=>(day.data?.tasks||[]).some(task=>{
+        if(!taskMatchesAdminScope(task,u)) return false;
+        const part=getPrimaryDisplayPart(u,task)||'(파트 미지정)';
+        return part===scopedPart;
+      }));
+    });
+  }
+  return adminAllData.filter(u=>{
+    if(adminTeamFilter && (u.team||'')!==adminTeamFilter) return false;
+    if(adminSuperPartFilter && !hasPart(u.part,adminSuperPartFilter)) return false;
+    return true;
+  });
+}
+
+function toggleAdminSection(key){
+  const wrap=document.getElementById(`admin-${key}-section`);
+  const icon=document.getElementById(`admin-${key}-toggle`);
+  if(!wrap) return;
+  wrap.classList.toggle('open');
+  if(icon) icon.textContent=wrap.classList.contains('open')?'▼ 접기':'▶ 펼치기';
+}
+
+function toggleAdminRates(){
+  toggleAdminSection('rates');
+}
+
+function getPrimaryDisplayPart(user,task){
+  const taskParts=getTaskScopedParts(task,user).filter(p=>p && p!=='공통');
+  if(isSuperAdmin() && adminSuperPartFilter) return adminSuperPartFilter;
+  if(!isSuperAdmin() && adminPartFilter) return adminPartFilter;
+
+  if(!isSuperAdmin()){
+    const assignedParts=getAdminAssignedParts();
+    if(assignedParts.length===1) return assignedParts[0];
+    if(assignedParts.length>1){
+      const matchedTaskPart=taskParts
+        .filter(p=>assignedParts.includes(p))
+        .sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b))[0];
+      if(matchedTaskPart) return matchedTaskPart;
+
+      const userParts=parsePartValues(user?.part)
+        .filter(p=>assignedParts.includes(p))
+        .sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b));
+      if(userParts.length) return userParts[0];
+    }
+  }
+
+  if(taskParts.length){
+    return [...taskParts].sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b))[0];
+  }
+  const userParts=parsePartValues(user?.part);
+  if(userParts.length){
+    return [...userParts].sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b))[0];
+  }
+  return '(파트 미지정)';
+}
+
+function setAdminTeamFilter(part,btn){
+  if(!isSuperAdmin()) return;
+  adminTeamFilter=part;
+  document.querySelectorAll('#admin-team-filter-wrap .team-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const {from,to}=getAdminDateRange();
+  renderAdminDashboard(from,to);
+}
+
+function setAdminSuperPartFilter(part,btn){
+  if(!isSuperAdmin()) return;
+  adminSuperPartFilter=part;
+  document.querySelectorAll('#admin-team-filter-wrap .super-part-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const {from,to}=getAdminDateRange();
+  renderAdminDashboard(from,to);
+}
+
+function setAdminPartFilter(part,btn){
+  adminPartFilter=part;
+  document.querySelectorAll('#admin-team-filter-wrap .part-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const {from,to}=getAdminDateRange();
+  renderAdminDashboard(from,to);
+}
+
+function refreshAdminTaskFilters(filtered){
+  const partSel=document.getElementById('admin-part-select');
+  const catSel=document.getElementById('admin-cat-filter');
+  const userSel=document.getElementById('admin-user-select');
+  if(!partSel || !catSel || !userSel) return;
+
+  const prevPart=partSel.value||'';
+  const prevCat=catSel.value||'';
+  const prevUser=userSel.value||'';
+
+  const visibleEntries=[];
+  filtered.forEach(u=>{
+    (u.days||[]).forEach(d=>{
+      (d.data?.tasks||[]).forEach(task=>{
+        if(!taskMatchesAdminScope(task,u)) return;
+        const part=getPrimaryDisplayPart(u,task)||'(파트 미지정)';
+        visibleEntries.push({user:u,date:d.date,task,part});
+      });
+    });
+  });
+
+  const assignedParts=!isSuperAdmin()?getAdminAssignedParts():[];
+  let availableParts=[];
+  if(!isSuperAdmin() && assignedParts.length){
+    availableParts=[...assignedParts];
+  }else{
+    availableParts=[...new Set(visibleEntries.map(v=>v.part).filter(p=>p && p!=='(파트 미지정)'))];
+  }
+  const hasUnassigned=visibleEntries.some(v=>v.part==='(파트 미지정)');
+
+  let partHtml='<option value="">전체 파트</option>';
+  [...PARTS.filter(p=>availableParts.includes(p)), ...availableParts.filter(p=>!PARTS.includes(p))].forEach(p=>{
+    partHtml += `<option value="${esc(p)}">${esc(p)}</option>`;
+  });
+  if(hasUnassigned) partHtml += '<option value="(파트 미지정)">(파트 미지정)</option>';
+  partSel.innerHTML=partHtml;
+  if(prevPart && [...partSel.options].some(opt=>opt.value===prevPart)) partSel.value=prevPart;
+
+  const activePart=partSel.value||'';
+  const scopedEntries=visibleEntries.filter(v=>!activePart || v.part===activePart);
+
+  let userHtml='<option value="">사용자 선택</option>';
+  if(activePart){
+    const users=[...new Map(scopedEntries.map(v=>[v.user.user_id,v.user])).values()]
+      .sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+    users.forEach(u=>{ userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`; });
+  } else {
+    const groupMap={};
+    scopedEntries.forEach(v=>{
+      groupMap[v.part] ??= [];
+      if(!groupMap[v.part].some(x=>x.user_id===v.user.user_id)) groupMap[v.part].push(v.user);
+    });
+    getOrderedGroupKeys(groupMap,[...PARTS,'(파트 미지정)']).forEach(group=>{
+      const users=(groupMap[group]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+      if(!users.length) return;
+      userHtml += `<optgroup label="${esc(group)}">`;
+      users.forEach(u=>{ userHtml += `<option value="${esc(u.user_id)}">${esc(u.name||u.email)}</option>`; });
+      userHtml += '</optgroup>';
+    });
+  }
+  userSel.innerHTML=userHtml;
+  if(prevUser && [...userSel.options].some(opt=>opt.value===prevUser)) userSel.value=prevUser;
+
+  const partMasterCats={};
+  const addCatToPart=(partKey, catName)=>{
+    if(!catName) return;
+    partMasterCats[partKey] ??= new Set();
+    partMasterCats[partKey].add(catName);
+  };
+
+  addCatToPart('공통', '(미분류)');
+  PARTS.forEach(part=>{ partMasterCats[part] ??= new Set(); });
+  if(hasUnassigned) partMasterCats['(파트 미지정)'] ??= new Set();
+
+  (allCategoriesData||[]).forEach(c=>{
+    const partKey=(c?.part||'공통');
+    addCatToPart(partKey, c?.name||'');
+  });
+
+  scopedEntries.forEach(v=>{
+    const cat=v.task.category||'(미분류)';
+    const partKey=v.part||'(파트 미지정)';
+    addCatToPart(partKey, cat);
+  });
+
+  let catHtml='<option value="">전체 업무구분</option>';
+  if(activePart){
+    const directCats=new Set();
+    if(activePart==='(파트 미지정)'){
+      [...(partMasterCats['공통']||[])].forEach(cat=>directCats.add(cat));
+      [...(partMasterCats['(파트 미지정)']||[])].forEach(cat=>directCats.add(cat));
+    } else {
+      [...(partMasterCats['공통']||[])].forEach(cat=>directCats.add(cat));
+      [...(partMasterCats[activePart]||[])].forEach(cat=>directCats.add(cat));
+    }
+    [...directCats].sort(compareCategoryName).forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
+  } else {
+    const orderedParts=['공통', ...PARTS.filter(p=>availableParts.includes(p)), ...availableParts.filter(p=>!PARTS.includes(p))];
+    if(hasUnassigned) orderedParts.push('(파트 미지정)');
+    orderedParts.forEach(part=>{
+      const cats=[...(partMasterCats[part]||[])].sort(compareCategoryName);
+      if(!cats.length) return;
+      catHtml += `<optgroup label="${esc(part)}">`;
+      cats.forEach(c=>{ catHtml += `<option value="${esc(c)}">${esc(c)}</option>`; });
+      catHtml += '</optgroup>';
+    });
+  }
+  catSel.innerHTML=catHtml;
+  if(prevCat && [...catSel.options].some(opt=>opt.value===prevCat)) catSel.value=prevCat;
+}
+
+
+function ensureSuperAdminManagementVisible(){
+  const userListSec=document.getElementById('admin-user-list-section');
+  const settingsSec=document.getElementById('admin-settings-section');
+  const viewAdmin=document.getElementById('view-admin');
+  const tasksSection=document.getElementById('admin-part-task-section');
+  const userListEl=document.getElementById('admin-user-list');
+  if(!userListSec || !settingsSec || !viewAdmin) return;
+
+  if(isSuperAdmin()){
+    userListSec.style.display='block';
+    settingsSec.style.display='block';
+    // 요약 카드 아래에 고정 배치해서 항상 보이게 정렬
+    if(tasksSection && tasksSection.parentNode===viewAdmin){
+      viewAdmin.insertBefore(userListSec, tasksSection);
+      viewAdmin.insertBefore(settingsSec, tasksSection);
+    }
+    // 회귀 버그 방지: 섹션은 보이는데 내용이 비는 경우 즉시 다시 렌더
+    if(userListEl && !String(userListEl.innerHTML||'').trim()){
+      renderAdminUserProfiles();
+    }
+    if(document.getElementById('admin-list') && !String(document.getElementById('admin-list').innerHTML||'').trim()){
+      loadAdminList();
+    }
+  } else {
+    userListSec.style.display='none';
+    settingsSec.style.display='none';
+  }
+}
+
+async function renderAdminDashboard(from,to){
+  await loadAllCategories();
+  const badge=document.getElementById('admin-role-badge');
+  const desc=document.getElementById('admin-role-desc');
+  if(badge){
+    if(isSuperAdmin()){
+      badge.textContent='슈퍼 관리자';
+      badge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;background:var(--red-soft);color:var(--red);font-weight:600;';
+      if(desc) desc.textContent='전체 팀 현황을 한눈에 확인해요';
+    } else {
+      badge.textContent=adminAssignedTeam?`팀 관리자 (${adminAssignedTeam})`:'팀 관리자';
+      badge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;vertical-align:middle;background:var(--blue-soft);color:var(--blue);font-weight:600;';
+      if(desc) desc.textContent=adminAssignedTeam?`${adminAssignedTeam} 팀 현황을 확인해요`:'담당 팀 현황을 확인해요';
+    }
+  }
+
+  renderAdminTeamFilter();
+  const filtered=getFilteredUsers();
+  refreshAdminTaskFilters(filtered);
+  ensureSuperAdminManagementVisible();
+  if(isSuperAdmin()){
+    renderAdminUserProfiles();
+    loadAdminList();
+  }
+
+  let totalTasks=0,totalDone=0,totalUndone=0,totalCarry=0;
+  filtered.forEach(u=>(u.days||[]).forEach(d=>{
+    const tasks=(d.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,u));
+    totalTasks += tasks.length;
+    totalDone += tasks.filter(t=>t.done).length;
+    totalUndone += tasks.filter(t=>!t.done && !t.carriedFrom).length;
+    totalCarry += tasks.filter(t=>t.carriedFrom).length;
+  }));
+  const avgRate=totalTasks?Math.round(totalDone/totalTasks*100):0;
+  const activeUsers=filtered.filter(u=>(u.days||[]).some(day=>(day.data?.tasks||[]).some(task=>taskMatchesAdminScope(task,u)))).length;
+  const cards=document.getElementById('admin-summary-cards');
+  if(cards){
+    cards.innerHTML=`
+      <div class="sum-card"><div class="sum-lbl">대상 사용자</div><div class="sum-val">${filtered.length}</div><div class="sum-sub">기록 사용자 ${activeUsers}명</div></div>
+      <div class="sum-card"><div class="sum-lbl">전체 업무</div><div class="sum-val">${totalTasks}</div><div class="sum-sub">완료 ${totalDone} / 미완료 ${totalUndone}</div></div>
+      <div class="sum-card"><div class="sum-lbl">평균 달성률</div><div class="sum-val">${avgRate}%</div><div class="sum-sub">선택 기간 기준</div></div>
+      <div class="sum-card"><div class="sum-lbl">이월 포함</div><div class="sum-val">${totalCarry}</div><div class="sum-sub">이월된 업무 수</div></div>`;
+  }
+
+  const ratesEl=document.getElementById('admin-user-rates');
+  const ratesSummary=document.getElementById('admin-rates-summary');
+  if(ratesEl){
+    const groups={};
+    filtered.forEach(u=>{
+      const visibleParts=getUserVisibleAdminParts(u);
+      visibleParts.forEach(part=>{
+        groups[part] ??= [];
+        if(!groups[part].some(x=>x.user_id===u.user_id)) groups[part].push(u);
+      });
+    });
+    let html='';
+    const orderedLabels=getOrderedGroupKeys(groups,[...PARTS,'(파트 미지정)']);
+    orderedLabels.forEach(label=>{
+      const users=(groups[label]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+      if(!users.length) return;
+      html += `<div class="admin-group-card" style="padding:0 0 8px 0;margin-bottom:14px;"><div class="admin-group-head" style="padding:12px 14px;"><div><div class="admin-group-title">${esc(label)}</div><div class="admin-group-sub">${users.length}명</div></div></div>`;
+      users.forEach(u=>{
+        let t=0,dn=0;
+        (u.days||[]).forEach(day=>{ const tasks=(day.data?.tasks||[]).filter(task=>taskMatchesAdminScope(task,u)); t+=tasks.length; dn+=tasks.filter(task=>task.done).length; });
+        const pct=t?Math.round(dn/t*100):0;
+        html += `<div class="admin-user-row" style="padding:10px 14px;"><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text);">${esc(u.name)}</div></div><div class="admin-rate-bar-wrap"><div class="admin-rate-bar-fill" style="width:${pct}%;"></div></div><div class="admin-rate-pct">${pct}%</div></div>`;
+      });
+      html += `</div>`;
+    });
+    ratesEl.innerHTML=html || '<div class="admin-empty-inline">표시할 사용자가 없어요</div>';
+    if(ratesSummary) ratesSummary.textContent=`${filtered.length}명 · 평균 ${avgRate}%`;
+  }
+
+  const undoneEl=document.getElementById('admin-undone-list');
+  const undoneSummary=document.getElementById('admin-undone-summary');
+  if(undoneEl){
+    const caution=[];
+    filtered.forEach(u=>(u.days||[]).forEach(day=>{
+      (day.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,u)).forEach(task=>{
+        const reasons=[];
+        if(!task.done && (task.priority||0)>=3) reasons.push('고우선 미완료');
+        if(task.carriedFrom) reasons.push('이월');
+        if(task.isRecurring && !task.done) reasons.push('반복 미완료');
+        if(!reasons.length) return;
+        caution.push({user:u,date:day.date,task,part:getPrimaryDisplayPart(u,task)||'(파트 미지정)',reasons});
+      });
+    }));
+    caution.sort((a,b)=>{
+      const pc=getPartOrderValue(a.part)-getPartOrderValue(b.part); if(pc!==0) return pc;
+      if(a.date!==b.date) return a.date.localeCompare(b.date);
+      return (a.user.name||a.user.email).localeCompare((b.user.name||b.user.email),'ko');
+    });
+    undoneEl.innerHTML=caution.length ? caution.map(({user,date,task,part,reasons})=>`<div class="admin-undone-item"><div class="admin-undone-name">${task.isRecurring?'🔁 ':''}${task.carriedFrom?'🔄 ':''}${esc(task.category?`[${task.category}] `:'')}${esc(task.name)}</div><div class="admin-undone-user">${esc(part)} · ${esc(user.name)} · ${date} · ${esc(reasons.join(', '))}</div></div>`).join('') : '<div class="admin-empty-inline">정리할 주의 업무가 없어요</div>';
+    if(undoneSummary) undoneSummary.textContent=`총 ${caution.length}건`;
+  }
+
+  renderAdminUserTasks();
 }
 
 /* ── 전체 Excel 일괄 다운로드 ── */
@@ -4790,7 +5167,6 @@ async function removeTeam(name){
 
 async function loadAdminList(){
   if(!isSuperAdmin())return;
-  // teamsList가 비어있으면 먼저 로드
   if(!teamsList.length)await loadTeams();
   try{
     const res=await fetch(`${SB_URL}/rest/v1/admins?select=id,email,role,assigned_team,assigned_part,created_at&order=created_at.asc`,{headers:getSBHeaders()});
@@ -4798,38 +5174,39 @@ async function loadAdminList(){
     const el=document.getElementById('admin-list');
     if(!admins||!admins.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);">등록된 관리자가 없어요</div>';return;}
 
-    // 파트 고정 목록 사용 (글로벌/일본/신사업)
-    // 담당팀 드롭다운은 팀 목록(teamsList) 사용 — 파트(PARTS) 아님
-    const teamOpts=`<option value="">전체(제한없음)</option>`+teamsList.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
-
-    const partOpts2=`<option value="">전체(제한없음)</option>`+PARTS.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    const partOpts=PARTS.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
     el.innerHTML=admins.map(a=>`
-      <div class="admin-user-chip" style="margin-bottom:6px;flex-wrap:wrap;gap:8px;">
-        <div style="flex:1;min-width:180px;">
+      <div class="admin-user-chip" style="margin-bottom:8px;align-items:flex-start;gap:10px;">
+        <div style="flex:1;min-width:220px;">
           <div style="font-size:13px;font-weight:500;">${esc(a.email)}${a.email===currentSession?.user?.email?' <span style="font-size:10px;color:var(--accent);">(나)</span>':''}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px;">
-            ${a.role==='super'?'<span style="color:var(--red);font-weight:600;">슈퍼 관리자</span>':'<span style="color:var(--blue);">관리자</span>'}
-            ${a.assigned_part&&a.role!=='super'?` · 담당: ${esc(a.assigned_part)} 파트`:(a.role!=='super'?' · 전체 조회':'')}
+            ${a.role==='super'?'<span style="color:var(--red);font-weight:600;">슈퍼 관리자</span>':`<span style="color:var(--blue);">팀 관리자</span>${a.assigned_team?` · 팀: ${esc(a.assigned_team)}`:''}${parsePartValues(a.assigned_part).length?` · 파트: ${esc(parsePartValues(a.assigned_part).join(', '))}`:' · 전체 파트 조회'}`}
           </div>
         </div>
         ${a.role!=='super'?`
-          <select id="apart_${a.id}" onchange="updateAdminPart('${a.id}',this.value)" style="border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
-            ${partOpts2}
-          </select>`:''}
+          <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+            <select id="apart_${a.id}" multiple size="4" onchange="updateAdminPart('${a.id}',this)" style="min-width:130px;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              ${partOpts}
+            </select>
+            <div style="font-size:11px;color:var(--text3);line-height:1.5;min-width:110px;">복수 선택 가능<br>선택 없으면 전체 파트 조회</div>
+          </div>`:''}
         ${a.email!==currentSession?.user?.email?`<button onclick="removeAdmin('${a.id}','${esc(a.email)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:6px;cursor:pointer;flex-shrink:0;">삭제</button>`:''}
       </div>`).join('');
 
-    // 저장된 담당파트 선택 반영
     admins.forEach(a=>{
       const sel=document.getElementById('apart_'+a.id);
-      if(sel)sel.value=a.assigned_part||'';
+      if(sel){
+        const selectedParts=parsePartValues(a.assigned_part);
+        [...sel.options].forEach(opt=>{opt.selected=selectedParts.includes(opt.value);});
+      }
     });
-    // 팀 목록 렌더
     renderTeamsList();
   }catch(e){console.error('loadAdminList:',e);}
 }
 
-async function updateAdminPart(adminId,part){
+async function updateAdminPart(adminId, selectEl){
+  const parts=selectEl?[...selectEl.selectedOptions].map(opt=>opt.value).filter(Boolean):[];
+  const part=serializePartValues(parts);
   try{
     const res=await fetch(`${SB_URL}/rest/v1/admins?id=eq.${adminId}`,{
       method:'PATCH',
@@ -4837,7 +5214,7 @@ async function updateAdminPart(adminId,part){
       body:JSON.stringify({assigned_part:part})
     });
     if(res.ok){
-      toast(`✅ 담당 파트가 '${part||'전체(제한없음)'}'로 설정됐어요`);
+      toast(`✅ 담당 파트가 '${parts.length?parts.join(', '):'전체(제한없음)'}'로 설정됐어요`);
       await loadAdminList();
     } else {
       const err=await res.text().catch(()=>'');
@@ -4847,6 +5224,7 @@ async function updateAdminPart(adminId,part){
   }catch(e){toast('오류: '+e.message);}
 }
 
+
 async function addAdmin(){
   const email=document.getElementById('admin-add-email').value.trim();
   if(!email||!email.includes('@')){toast('올바른 이메일을 입력해 주세요');return;}
@@ -4854,7 +5232,7 @@ async function addAdmin(){
     const res=await fetch(`${SB_URL}/rest/v1/admins`,{
       method:'POST',
       headers:{...getSBHeaders(),'Prefer':'return=minimal'},
-      body:JSON.stringify({email})
+      body:JSON.stringify({email,role:'team',assigned_part:''})
     });
     if(res.status===200||res.status===201||res.status===204){
       document.getElementById('admin-add-email').value='';

@@ -996,6 +996,7 @@
               <option value="">전체 사용자</option>
             </select>
           </div>
+          <div id="admin-task-status-bar" style="display:none;padding:10px 18px;border-bottom:1px solid var(--border);background:#fffaf2;"></div>
           <div id="admin-user-tasks" style="padding:14px 18px;"></div>
         </div>
       </div>
@@ -1015,7 +1016,7 @@
       <!-- 미완료/이월 현황 -->
       <div class="section-card admin-collapsible" id="admin-undone-section" style="margin-bottom:16px;">
         <div class="section-head" onclick="toggleAdminSection('undone')">
-          <h3>⚠️ 미완료 · 이월 현황 (현재 시점 기준)</h3>
+          <h3>⚠️ 주의 필요 업무</h3>
           <div class="admin-head-meta">
             <span id="admin-undone-summary" class="admin-head-summary">간략 요약</span>
             <span id="admin-undone-toggle" class="admin-toggle-icon">▶ 펼치기</span>
@@ -3820,6 +3821,7 @@ let teamsList=[]; // DB에 등록된 팀 목록
 let adminRole=''; // 'super' | 'team' | ''
 let adminAssignedTeam=''; // 팀 관리자의 담당 팀
 let adminAssignedPart=''; // 파트 관리자의 담당 파트 (글로벌/일본/신사업/'')
+let adminTaskStatusFilter=''; // 파트별 업무 목록 카드 클릭 필터
 
 async function checkAdmin(){
   if(!currentSession?.user?.email)return false;
@@ -4421,12 +4423,31 @@ async function saveUserProfile(userId,email){
 }
 
 /* ── 파트별 업무 목록 ── */
+function setAdminTaskStatusFilter(status, part){
+  const partSel=document.getElementById('admin-part-select');
+  const catSel=document.getElementById('admin-cat-filter');
+  const userSel=document.getElementById('admin-user-select');
+  const nextPart=(typeof part!=='undefined' && part!==null) ? (part||'') : (partSel?.value||'');
+  const shouldClear=(adminTaskStatusFilter===status && (!partSel || partSel.value===nextPart));
+  adminTaskStatusFilter = shouldClear ? '' : status;
+  if(partSel) partSel.value=shouldClear ? '' : nextPart;
+  if(catSel) catSel.value='';
+  if(userSel) userSel.value='';
+  refreshAdminTaskFilters(getFilteredUsers());
+  renderAdminUserTasks();
+}
+
+function getAdminStatusFilterLabel(status){
+  return status==='done' ? '완료 업무' : status==='undone' ? '미완료 업무' : status==='carry' ? '이월/반복 업무' : '';
+}
+
 function renderAdminUserTasks(){
   const selectedPart=document.getElementById('admin-part-select')?.value||'';
   const uid=document.getElementById('admin-user-select')?.value||'';
   const catFilter=document.getElementById('admin-cat-filter')?.value||'';
   const el=document.getElementById('admin-user-tasks');
   const summaryEl=document.getElementById('admin-tasks-summary');
+  const statusBar=document.getElementById('admin-task-status-bar');
   if(!el) return;
 
   const filteredUsers=getFilteredUsers();
@@ -4440,10 +4461,26 @@ function renderAdminUserTasks(){
           if(selectedPart && part!==selectedPart) return;
           if(uid && user.user_id!==uid) return;
           if(catFilter && (task.category||'')!==catFilter) return;
+          if(adminTaskStatusFilter==='done' && !task.done) return;
+          if(adminTaskStatusFilter==='undone' && task.done) return;
+          if(adminTaskStatusFilter==='carry' && !(task.carriedFrom||task.isRecurring)) return;
           entries.push({user,date:d.date,task,part});
         });
     });
   });
+
+  if(statusBar){
+    if(adminTaskStatusFilter){
+      statusBar.style.display='flex';
+      statusBar.style.alignItems='center';
+      statusBar.style.justifyContent='space-between';
+      statusBar.style.gap='10px';
+      statusBar.innerHTML=`<div style="font-size:12px;color:var(--text2);">현재 보기: <strong style="color:var(--text);">${esc(selectedPart||'전체 파트')}</strong> / <strong style="color:var(--accent);">${getAdminStatusFilterLabel(adminTaskStatusFilter)}</strong></div><button onclick="setAdminTaskStatusFilter('', '')" style="padding:4px 10px;border:1px solid var(--border2);border-radius:999px;background:white;color:var(--text2);font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 보기</button>`;
+    }else{
+      statusBar.style.display='none';
+      statusBar.innerHTML='';
+    }
+  }
 
   if(!entries.length){
     el.innerHTML='<div class="admin-empty-inline">표시할 업무가 없어요</div>';
@@ -4488,15 +4525,17 @@ function renderAdminUserTasks(){
     const topCats=Object.entries(info.catMap).sort((a,b)=> b[1]===a[1] ? compareCategoryName(a[0],b[0]) : b[1]-a[1]);
     const topUsers=Object.entries(info.userMap).sort((a,b)=> b[1]===a[1] ? a[0].localeCompare(b[0],'ko') : b[1]-a[1]);
     const doneCnt=info.items.filter(v=>v.task.done).length;
+    const undoneCnt=info.items.length-doneCnt;
+    const carryCnt=info.items.filter(v=>v.task.carriedFrom||v.task.isRecurring).length;
 
     html+=`<div class="admin-group-card" style="padding:14px 16px;"><div class="admin-group-head"><div><div class="admin-group-title">${esc(part)}</div><div class="admin-group-sub">업무 ${info.items.length}건 · 사용자 ${Object.keys(info.userMap).length}명</div></div><span class="admin-pill">파트 기준</span></div>`;
 
-    if(!selectedPart && !uid && !catFilter){
+    if(!selectedPart && !uid && !catFilter && !adminTaskStatusFilter){
       html+=`<div class="admin-simple-list">
         <div class="admin-mini-grid">
-          <div class="admin-mini-card"><div class="admin-mini-label">완료</div><div class="admin-mini-value">${doneCnt}</div><div class="admin-mini-sub">완료율 ${Math.round(doneCnt/info.items.length*100)}%</div></div>
-          <div class="admin-mini-card"><div class="admin-mini-label">미완료</div><div class="admin-mini-value" style="color:var(--red);">${info.items.length-doneCnt}</div><div class="admin-mini-sub">현재 남은 업무</div></div>
-          <div class="admin-mini-card"><div class="admin-mini-label">이월/반복</div><div class="admin-mini-value">${info.items.filter(v=>v.task.carriedFrom||v.task.isRecurring).length}</div><div class="admin-mini-sub">운영성 업무 포함</div></div>
+          <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('done', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">완료</div><div class="admin-mini-value">${doneCnt}</div><div class="admin-mini-sub">완료율 ${Math.round(doneCnt/info.items.length*100)}%</div></div>
+          <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('undone', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">미완료</div><div class="admin-mini-value" style="color:var(--red);">${undoneCnt}</div><div class="admin-mini-sub">현재 남은 업무</div></div>
+          <div class="admin-mini-card" onclick="setAdminTaskStatusFilter('carry', '${esc(part)}')" style="cursor:pointer;"><div class="admin-mini-label">이월/반복</div><div class="admin-mini-value">${carryCnt}</div><div class="admin-mini-sub">운영성 업무 포함</div></div>
         </div>
         <div>
           <div class="admin-simple-meta" style="margin-bottom:6px;">업무구분별 현황</div>
@@ -4549,6 +4588,7 @@ function renderAdminUserTasks(){
 }
 
 function handleAdminPartSelectChange(){
+  adminTaskStatusFilter='';
   const filtered=getFilteredUsers();
   refreshAdminTaskFilters(filtered);
   ensureSuperAdminManagementVisible();
@@ -4878,19 +4918,24 @@ async function renderAdminDashboard(from,to){
   const undoneEl=document.getElementById('admin-undone-list');
   const undoneSummary=document.getElementById('admin-undone-summary');
   if(undoneEl){
-    const undone=[];
+    const caution=[];
     filtered.forEach(u=>(u.days||[]).forEach(day=>{
-      (day.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,u) && !t.done && !t.carriedFrom).forEach(task=>{
-        undone.push({user:u,date:day.date,task,part:getPrimaryDisplayPart(u,task)||'(파트 미지정)'});
+      (day.data?.tasks||[]).filter(t=>taskMatchesAdminScope(t,u)).forEach(task=>{
+        const reasons=[];
+        if(!task.done && (task.priority||0)>=3) reasons.push('고우선 미완료');
+        if(task.carriedFrom) reasons.push('이월');
+        if(task.isRecurring && !task.done) reasons.push('반복 미완료');
+        if(!reasons.length) return;
+        caution.push({user:u,date:day.date,task,part:getPrimaryDisplayPart(u,task)||'(파트 미지정)',reasons});
       });
     }));
-    undone.sort((a,b)=>{
+    caution.sort((a,b)=>{
       const pc=getPartOrderValue(a.part)-getPartOrderValue(b.part); if(pc!==0) return pc;
       if(a.date!==b.date) return a.date.localeCompare(b.date);
       return (a.user.name||a.user.email).localeCompare((b.user.name||b.user.email),'ko');
     });
-    undoneEl.innerHTML=undone.length ? undone.map(({user,date,task,part})=>`<div class="admin-undone-item"><div class="admin-undone-name">${task.isRecurring?'🔁 ':''}${esc(task.category?`[${task.category}] `:'')}${esc(task.name)}</div><div class="admin-undone-user">${esc(part)} · ${esc(user.name)} · ${date}</div></div>`).join('') : '<div class="admin-empty-inline">미완료 업무가 없어요</div>';
-    if(undoneSummary) undoneSummary.textContent=`총 ${undone.length}건`;
+    undoneEl.innerHTML=caution.length ? caution.map(({user,date,task,part,reasons})=>`<div class="admin-undone-item"><div class="admin-undone-name">${task.isRecurring?'🔁 ':''}${task.carriedFrom?'🔄 ':''}${esc(task.category?`[${task.category}] `:'')}${esc(task.name)}</div><div class="admin-undone-user">${esc(part)} · ${esc(user.name)} · ${date} · ${esc(reasons.join(', '))}</div></div>`).join('') : '<div class="admin-empty-inline">정리할 주의 업무가 없어요</div>';
+    if(undoneSummary) undoneSummary.textContent=`총 ${caution.length}건`;
   }
 
   renderAdminUserTasks();

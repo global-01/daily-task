@@ -4561,24 +4561,34 @@ function refreshAdminTaskFilters(filtered){
   const availableParts=[];
   filtered.forEach(u=>parsePartValues(u.part).forEach(p=>{ if(p && !availableParts.includes(p)) availableParts.push(p); }));
   let partHtml='<option value="">전체 파트</option>';
-  [...PARTS.filter(p=>availableParts.includes(p)), ...availableParts.filter(p=>!PARTS.includes(p))]
-    .forEach(p=> partHtml += `<option value="${esc(p)}">${esc(p)}</option>`);
+  PARTS.filter(p=>availableParts.includes(p)).forEach(p=> partHtml += `<option value="${esc(p)}">${esc(p)}</option>`);
   if(filtered.some(u=>!parsePartValues(u.part).length)) partHtml += '<option value="(파트 미지정)">(파트 미지정)</option>';
   partSel.innerHTML=partHtml;
   if(prevPart && partSel.querySelector(`option[value="${CSS.escape(prevPart)}"]`)) partSel.value=prevPart;
 
   const activePart=partSel.value||'';
 
-  let userHtml='<option value="">사용자 선택</option>';
   const userGroups={};
+  const pushUserToGroup=(group,u)=>{
+    userGroups[group] ??= [];
+    if(!userGroups[group].some(x=>x.user_id===u.user_id)) userGroups[group].push(u);
+  };
+
   filtered.forEach(u=>{
-    const groupKeys=parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)'];
-    const matchesPart=!activePart || groupKeys.includes(activePart);
-    if(!matchesPart) return;
-    const bucket=activePart || groupKeys[0] || '(파트 미지정)';
-    userGroups[bucket] ??= [];
-    if(!userGroups[bucket].some(x=>x.user_id===u.user_id)) userGroups[bucket].push(u);
+    const parts=parsePartValues(u.part);
+    const groupKeys=parts.length ? parts : ['(파트 미지정)'];
+    if(activePart){
+      if(activePart==='(파트 미지정)'){
+        if(!parts.length) pushUserToGroup('(파트 미지정)', u);
+      } else if(groupKeys.includes(activePart)) {
+        pushUserToGroup(activePart, u);
+      }
+      return;
+    }
+    groupKeys.forEach(group=>pushUserToGroup(group, u));
   });
+
+  let userHtml='<option value="">사용자 선택</option>';
   const orderedUserGroups=activePart ? [activePart] : [...PARTS,'(파트 미지정)'];
   getOrderedGroupKeys(userGroups, orderedUserGroups).forEach(group=>{
     const arr=(userGroups[group]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
@@ -4590,12 +4600,11 @@ function refreshAdminTaskFilters(filtered){
   userSel.innerHTML=userHtml;
   if(prevUser && userSel.querySelector(`option[value="${CSS.escape(prevUser)}"]`)) userSel.value=prevUser;
 
-  const scopedParts=activePart ? (activePart==='(파트 미지정)'?['공통']:['공통',activePart]) : ['공통', ...PARTS];
   const catsByPart={};
-  scopedParts.forEach(p=>catsByPart[p]=new Set());
+  ['공통', ...PARTS, '(파트 미지정)'].forEach(p=>catsByPart[p]=new Set());
   (allCategoriesData||[]).forEach(c=>{
     const part=(c?.part||'공통');
-    if(c?.name && scopedParts.includes(part)) catsByPart[part].add(c.name);
+    if(c?.name && catsByPart[part]) catsByPart[part].add(c.name);
   });
   filtered.forEach(u=>{
     const userParts=parsePartValues(u.part);
@@ -4605,41 +4614,22 @@ function refreshAdminTaskFilters(filtered){
     }
     (u.days||[]).forEach(d=>(d.data?.tasks||[]).forEach(t=>{
       if(!t.category) return;
+      const part=getPrimaryDisplayPart(u,t)||'(파트 미지정)';
       if(activePart){
-        if(activePart!=='(파트 미지정)'){
-          catsByPart[activePart] ??= new Set();
-          catsByPart[activePart].add(t.category);
-        }else{
-          catsByPart['공통'] ??= new Set();
-          catsByPart['공통'].add(t.category);
-        }
+        if(part===activePart) catsByPart[activePart].add(t.category);
       } else {
-        const mapped=getCategoryMappedParts(t.category).filter(p=>p!=='공통');
-        if(mapped.length){
-          mapped.forEach(p=>{ if(scopedParts.includes(p)){ catsByPart[p] ??= new Set(); catsByPart[p].add(t.category);} });
-        } else {
-          catsByPart['공통'].add(t.category);
-        }
+        const targetPart = catsByPart[part] ? part : '(파트 미지정)';
+        catsByPart[targetPart].add(t.category);
       }
     }));
   });
 
   let catHtml='<option value="">전체 업무구분</option>';
   if(activePart){
-    const order=activePart==='(파트 미지정)'?['공통']:['공통',activePart];
-    order.forEach(p=>{
-      const cats=[...(catsByPart[p]||[])].sort(compareCategoryName);
-      if(!cats.length) return;
-      if(activePart==='(파트 미지정)') cats.forEach(c=> catHtml += `<option value="${esc(c)}">${esc(c)}</option>`);
-      else {
-        const label=p==='공통'?'공통':p;
-        catHtml += `<optgroup label="${esc(label)}">`;
-        cats.forEach(c=> catHtml += `<option value="${esc(c)}">${esc(c)}</option>`);
-        catHtml += '</optgroup>';
-      }
-    });
+    const cats=[...(catsByPart[activePart]||[])].sort(compareCategoryName);
+    cats.forEach(c=> catHtml += `<option value="${esc(c)}">${esc(c)}</option>`);
   } else {
-    ['공통',...PARTS].forEach(p=>{
+    [...PARTS,'(파트 미지정)'].forEach(p=>{
       const cats=[...(catsByPart[p]||[])].sort(compareCategoryName);
       if(!cats.length) return;
       catHtml += `<optgroup label="${esc(p)}">`;
@@ -4696,14 +4686,16 @@ async function renderAdminDashboard(from,to){
     const groups={};
     filtered.forEach(u=>{
       const parts=parsePartValues(u.part).length?parsePartValues(u.part):['(파트 미지정)'];
-      const label=parts.sort((a,b)=>getPartOrderValue(a)-getPartOrderValue(b)).join(', ')||'(파트 미지정)';
-      groups[label] ??= [];
-      groups[label].push(u);
+      parts.forEach(part=>{
+        groups[part] ??= [];
+        if(!groups[part].some(x=>x.user_id===u.user_id)) groups[part].push(u);
+      });
     });
     let html='';
-    const orderedLabels=Object.keys(groups).sort(compareAdminGroupLabel);
+    const orderedLabels=getOrderedGroupKeys(groups,[...PARTS,'(파트 미지정)']);
     orderedLabels.forEach(label=>{
-      const users=groups[label].sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+      const users=(groups[label]||[]).sort((a,b)=>(a.name||a.email).localeCompare((b.name||b.email),'ko'));
+      if(!users.length) return;
       html += `<div class="admin-group-card" style="padding:0 0 8px 0;margin-bottom:14px;"><div class="admin-group-head" style="padding:12px 14px;"><div><div class="admin-group-title">${esc(label)}</div><div class="admin-group-sub">${users.length}명</div></div></div>`;
       users.forEach(u=>{
         let t=0,dn=0;

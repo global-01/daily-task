@@ -3027,7 +3027,6 @@ async function checkAndCarryOver(){
   const todayDay=await fetchDay(today);
   todayDay.tasks=todayDay.tasks||[];
 
-  // 이미 이월된 업무의 원본날짜 추출 (M/D → YYYY-MM-DD 역변환)
   // 중복 방지: 이름 기준으로 이미 이월된 업무 Set 생성
   const alreadyCarriedNames=new Set(
     todayDay.tasks.filter(t=>t.carriedFrom).map(t=>t.name)
@@ -3048,14 +3047,16 @@ async function checkAndCarryOver(){
   const undone=(prevDay.tasks||[]).filter(t=>!t.done&&!t.isRecurring&&!t.isPeriodTask);
   if(!undone.length){localStorage.setItem(CARRY_KEY,today);return;}
 
-  // 이름 기준으로 중복 체크 (이미 이월된 업무는 추가 안 함)
+  // 최초 등록 기준 출처 유지
   const[,m,d]=prev.split('-');
-  const carriedFrom=parseInt(m)+'/'+parseInt(d);
+  const prevCarryLabel=parseInt(m)+'/'+parseInt(d);
 
   let added=0;
   undone.forEach(t=>{
     if(!alreadyCarriedNames.has(t.name)){
-      todayDay.tasks.push({...t,done:false,carriedFrom});
+      const originLabel=t.carriedFrom||prevCarryLabel;
+      const originDate=t.carryOriginDate||prev;
+      todayDay.tasks.push({...t,done:false,carriedFrom:originLabel,carryOriginDate:originDate});
       alreadyCarriedNames.add(t.name); // 같은 실행 내에서도 중복 방지
       added++;
     }
@@ -3756,7 +3757,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   const ws1=wb.addWorksheet('주간 업무 일지',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1}});
   ws1.views=[{showGridLines:false}];
   // 컬럼: 날짜(12) 요일(7) No(5) 구분(12) 업무내용(36) 우선순위(9) 완료(9) 비고(30) 이월(11)
-  const ws1ColWidths=[12,7,5,12,36,9,9,30,11];
+  const ws1ColWidths=[12,7,5,12,85,9,9,30,11];
   ws1.columns=ws1ColWidths.map(w=>({width:w}));
 
   // 타이틀
@@ -3907,7 +3908,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   if(opts.incCarry){
     const ws3=wb.addWorksheet('이월 업무',{pageSetup:{paperSize:9,orientation:'portrait'}});
     ws3.views=[{showGridLines:false}];
-    ws3.columns=[{width:12},{width:8},{width:12},{width:40},{width:12},{width:12}];
+    ws3.columns=[{width:12},{width:8},{width:12},{width:85},{width:12},{width:12}];
 
     ws3.mergeCells('A1:F1');
     ws3.getCell('A1').value='이 월 업 무 현 황';
@@ -5238,7 +5239,7 @@ async function adminDownloadAll(){
     const sheetName=u.email.split('@')[0].slice(0,28);
     const wsu=wb.addWorksheet(sheetName);
     wsu.views=[{showGridLines:false}];
-    wsu.columns=[{width:12},{width:7},{width:5},{width:12},{width:34},{width:9},{width:9},{width:20},{width:11},{width:28}];
+    wsu.columns=[{width:12},{width:7},{width:5},{width:12},{width:85},{width:9},{width:9},{width:20},{width:11},{width:28}];
 
     wsu.mergeCells('A1:J1');
     const tu=wsu.getCell('A1');

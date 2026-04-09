@@ -3927,8 +3927,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     workDayDatas.forEach(({date,data:d})=>{
       (d.tasks||[]).filter(t=>t.minutesTitle).forEach((t,i)=>{
         hasMin=true;
-        const h=Math.min(calcHeight([t.name,t.minutesTitle,t.minutesAttendees,t.minutesContent,t.minutesAction],[28,28,20,85,40],22),250);
-        const r=ws2.addRow([]);r.height=h;
+        const r=ws2.addRow([]);r.height=250;
         const bg=i%2===0?C.white:C.altRow;
         data(r.getCell(1),date,{bg,align:'center'});
         data(r.getCell(2),t.name||'',{bg,wrap:true});

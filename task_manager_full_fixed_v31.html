@@ -4037,17 +4037,11 @@ async function downloadWeeklyReport(){
 
     const wb=await buildExcelWorkbook(dayDatas,userName,dates,opts);
 
-    // 시트별 열너비 정책 유지: 고정 컬럼은 고정, 긴 텍스트 컬럼만 제한값 적용
-    // buildExcelWorkbook 내부에서 이미 적용되므로 여기서 전체 재자동조절하지 않음.
+    // 주간보고 다운로드는 buildExcelWorkbook 내부에서 시트별 열너비 정책을 이미 적용함.
+    // 여기서 추가 자동조절을 다시 수행하면 고정 컬럼 정책이 깨지거나,
+    // 존재하지 않는 시트 변수를 참조해 오류가 날 수 있어 재조정 로직을 제거함.
 
-    // 관리자 다운로드 시트도 컬럼 폭 정책 고정
-  autoFitWorksheetColumns(ws1,{minWidth:7,maxWidth:30,fixedCols:{1:30,2:9,3:9,4:9,5:10,6:16,7:16}});
-  wb.worksheets.forEach(ws=>{
-    if(ws.name==='전체 팀 요약') return;
-    autoFitWorksheetColumns(ws,{minWidth:5,maxWidth:85,fixedCols:{1:15,2:10,3:5,4:15,5:85,6:8,7:8,8:30,9:8,10:40}});
-  });
-
-  const buf=await wb.xlsx.writeBuffer();
+    const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');

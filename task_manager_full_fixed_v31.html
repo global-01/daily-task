@@ -1928,7 +1928,36 @@ function toggleEditTaskTypeFields(){
     if(endEl&&!endEl.value)endEl.value=startEl?.value||today;
   }
 }
+async function ensurePeriodTaskRange(task, anchorDate){
+  if(!task?.isPeriodTask || !task.periodStart || !task.periodEnd || !task.periodTaskId) return 0;
+  const dates=getDateRangeList(task.periodStart, task.periodEnd);
+  if(!dates.length) return 0;
+  let added=0;
+  for(const date of dates){
+    if(date===anchorDate) continue;
+    const dayData=await fetchDay(date);
+    dayData.tasks=dayData.tasks||[];
+    const exists=dayData.tasks.some(t=>t.periodTaskId===task.periodTaskId);
+    if(exists) continue;
+    dayData.tasks.push({
+      ...task,
+      done:false,
+      note:'',
+      minutesTitle:'',
+      minutesDatetime:'',
+      minutesAttendees:'',
+      minutesContent:'',
+      minutesAction:'',
+      carriedFrom:undefined
+    });
+    await saveDay(date,dayData);
+    added++;
+  }
+  return added;
+}
+
 async function saveEdit(i){
+  const originalTask={...(curDay.tasks[i]||{})};
   const name=document.getElementById('ei-name').value.trim();
   if(!name)return;
   const targetDate=document.getElementById('ei-date')?.value||curDate;
@@ -1939,6 +1968,7 @@ async function saveEdit(i){
   if(editType==='period'){
     if(!editStart||!editEnd){toast('기간업무는 시작일과 종료일을 선택해 주세요');return;}
     if(editEnd<editStart){toast('종료일이 시작일보다 빠를 수 없어요');return;}
+    if(getDateRangeList(editStart,editEnd).length>60){toast('기간업무는 최대 60일까지만 설정할 수 있어요');return;}
   }
 
   const editCatMeta=getSelectedCategoryMeta('ei-cat');
@@ -1959,6 +1989,8 @@ async function saveEdit(i){
     task.periodTaskId = makePeriodTaskId();
   }
 
+  let addedRangeCount=0;
+
   if(targetDate && targetDate!==curDate){
     // 날짜 이동: 현재 날짜에서 삭제 후 대상 날짜에 추가
     curDay.tasks.splice(i,1);
@@ -1971,13 +2003,29 @@ async function saveEdit(i){
     targetDay.tasks=targetDay.tasks||[];
     targetDay.tasks.push({...task,carriedFrom:undefined});
     await saveDay(targetDate,targetDay);
-    toast(`📅 "${name}" 을 ${targetDate}로 이동했어요`);
+
+    // 일반업무 → 기간업무 변경 시, 나머지 기간 날짜 자동 생성
+    if(editType==='period' && !originalTask.isPeriodTask){
+      addedRangeCount=await ensurePeriodTaskRange(task,targetDate);
+    }
+
+    toast(addedRangeCount>0
+      ? `📅 "${name}" 이동 후 기간업무 ${addedRangeCount}일이 추가 생성됐어요`
+      : `📅 "${name}" 을 ${targetDate}로 이동했어요`);
   } else {
     curDay.tasks[i]=task;
     editingIdx=-1;
     renderTasks();renderStatCards();
     await saveCurrent(true);
-    toast('수정됐어요');
+
+    // 일반업무 → 기간업무 변경 시, 나머지 기간 날짜 자동 생성
+    if(editType==='period' && !originalTask.isPeriodTask){
+      addedRangeCount=await ensurePeriodTaskRange(task,curDate);
+    }
+
+    toast(addedRangeCount>0
+      ? `수정됐어요 · 기간업무 ${addedRangeCount}일이 추가 생성됐어요`
+      : '수정됐어요');
   }
 }
 

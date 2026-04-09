@@ -3927,7 +3927,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     workDayDatas.forEach(({date,data:d})=>{
       (d.tasks||[]).filter(t=>t.minutesTitle).forEach((t,i)=>{
         hasMin=true;
-        const r=ws2.addRow([]);r.height=130;
+        const r=ws2.addRow([]);r.height=100;
         const bg=i%2===0?C.white:C.altRow;
         data(r.getCell(1),date,{bg,align:'center'});
         data(r.getCell(2),t.name||'',{bg,wrap:true});
@@ -5260,7 +5260,7 @@ async function adminDownloadAll(){
   ws1.addRow([]);ws1.getRow(3).height=8;
 
   const sh=ws1.addRow([]);sh.height=22;
-  ['이메일','총 업무','완료','미완료','달성률','마지막 기록','마지막 접속'].forEach((h,i)=>{
+  ['이름','총 업무','완료','미완료','달성률','마지막 기록','마지막 접속'].forEach((h,i)=>{
     hdr(sh.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
   });
 
@@ -5274,7 +5274,7 @@ async function adminDownloadAll(){
     const bg=ui%2===0?C.white:C.altRow;
     const rateBg=rate>=80?C.doneBg:rate>=50?'FFF9E6':C.undoneBg;
     const rateFg=rate>=80?C.doneFg:rate>=50?'8B6914':C.undoneFg;
-    data(r.getCell(1),u.email,{bg,bold:true});
+    data(r.getCell(1),u.name||u.email.split('@')[0],{bg,bold:true});
     data(r.getCell(2),total,{bg,align:'center'});
     data(r.getCell(3),done,{bg:C.doneBg,fg:C.doneFg,align:'center',bold:true});
     data(r.getCell(4),total-done,{bg:total-done>0?C.undoneBg:bg,fg:total-done>0?C.undoneFg:'2C2825',align:'center'});
@@ -5297,14 +5297,14 @@ async function adminDownloadAll(){
   // ── 사용자별 시트 ──
   for(const u of adminAllData){
     if(!u.days.length)continue;
-    const sheetName=u.email.split('@')[0].slice(0,28);
+    const sheetName=(u.name||u.email.split('@')[0]).replace(/[\\/*?:\[\]]/g,'').slice(0,28)||'사용자';
     const wsu=wb.addWorksheet(sheetName);
     wsu.views=[{showGridLines:false}];
     wsu.columns=[{width:15},{width:10},{width:5},{width:15},{width:85},{width:8},{width:8},{width:30},{width:8},{width:40}];
 
     wsu.mergeCells('A1:J1');
     const tu=wsu.getCell('A1');
-    tu.value=`주간 업무 일지 — ${u.email}`;
+    tu.value=`주간 업무 일지 — ${u.name||u.email.split('@')[0]}`;
     tu.font={name:'Malgun Gothic',size:13,bold:true,color:{argb:'FF'+C.headerBg}};
     tu.alignment={horizontal:'center',vertical:'middle'};
     tu.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};

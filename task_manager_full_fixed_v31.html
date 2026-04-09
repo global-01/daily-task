@@ -4018,45 +4018,47 @@ async function downloadWeeklyReport(){
     incMinutes:document.getElementById('dl-minutes').checked,
   };
 
-  // 금~목 7일 날짜 생성
   const dates=[];
   for(let i=0;i<7;i++){
     const dd=new Date(y,m-1,d+i);
     dates.push(`${dd.getFullYear()}-${pad(dd.getMonth()+1)}-${pad(dd.getDate())}`);
   }
 
-  showLoading('데이터 불러오는 중...');
-  const dayDatas=await Promise.all(dates.map(async date=>{
-    const data=await fetchDay(date);
-    return{date,data};
-  }));
+  try{
+    showLoading('데이터 불러오는 중...');
+    const dayDatas=await Promise.all(dates.map(async date=>{
+      const data=await fetchDay(date);
+      return{date,data};
+    }));
 
-  showLoading('Excel 생성 중...');
-  const email=currentSession?.user?.email||'';
-  const userName=email.split('@')[0]||'사용자';
+    showLoading('Excel 생성 중...');
+    const email=currentSession?.user?.email||'';
+    const userName=email.split('@')[0]||'사용자';
 
-  const wb=await buildExcelWorkbook(dayDatas,userName,dates,opts);
+    const wb=await buildExcelWorkbook(dayDatas,userName,dates,opts);
 
-  autoFitWorksheetColumns(ws1,{minWidth:8,maxWidth:85});
-  wb.worksheets.forEach(ws=>{
-    if(ws.name!=='전체 팀 요약') autoFitWorksheetColumns(ws,{minWidth:5,maxWidth:85});
-  });
+    wb.worksheets.forEach(ws=>{
+      autoFitWorksheetColumns(ws,{minWidth:5,maxWidth:85});
+    });
 
-  const buf=await wb.xlsx.writeBuffer();
-  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`주간업무일지_${userName}_${dates[0]}_${dates[6]}.xlsx`;
-  a.click();
-  URL.revokeObjectURL(url);
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`주간업무일지_${userName}_${dates[0]}_${dates[6]}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
 
-  hideLoading();
-  closeDownloadModal();
-  toast('📥 Excel 파일이 다운로드됐어요');
+    closeDownloadModal();
+    toast('📥 Excel 파일이 다운로드됐어요');
+  }catch(err){
+    console.error('downloadWeeklyReport error:', err);
+    toast('⚠️ Excel 다운로드 중 오류가 발생했어요');
+  }finally{
+    hideLoading();
+  }
 }
-
-
 /* ═══════════════════════════════════════
    관리자 기능
 ═══════════════════════════════════════ */

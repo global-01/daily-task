@@ -745,8 +745,8 @@
                   <option value="2">🟡 보통</option><option value="1">🟢 낮음</option>
                 </select>
                 <div class="period-fields" id="period-fields">
-                  <input class="period-date" id="nstart" type="date">
-                  <input class="period-date" id="nend" type="date">
+                  <input class="period-date" id="nstart" type="date" title="날짜를 클릭해 선택" onclick="openDatePicker(this)">
+                  <input class="period-date" id="nend" type="date" title="날짜를 클릭해 선택" onclick="openDatePicker(this)">
                 </div>
                 <button class="add-btn" onclick="addTask()">+ 추가</button>
               </div>
@@ -844,9 +844,9 @@
         <!-- 직접 선택 날짜 피커 (숨김) -->
         <div id="custom-range-row" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;">
           <span style="font-size:12px;color:var(--text2);">시작일</span>
-          <input type="date" id="stat-date-from" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;">
+          <input type="date" id="stat-date-from" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;cursor:pointer;">
           <span style="font-size:12px;color:var(--text2);">~</span>
-          <input type="date" id="stat-date-to" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;">
+          <input type="date" id="stat-date-to" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:'Noto Sans KR',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;cursor:pointer;">
           <button onclick="applyCustomRange()" style="padding:5px 14px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;font-weight:600;">조회</button>
           <div style="display:flex;gap:4px;margin-left:4px;">
             <button onclick="setPresetRange('thisWeek')" style="padding:4px 9px;border:1px solid var(--border2);border-radius:6px;font-size:11px;background:transparent;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">이번주</button>
@@ -982,9 +982,9 @@
       <!-- 기간 직접 선택 -->
       <div id="admin-custom-range" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:12px;color:var(--text2);">시작일</span>
-        <input type="date" id="admin-date-from" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;">
+        <input type="date" id="admin-date-from" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
         <span style="font-size:12px;color:var(--text2);">~</span>
-        <input type="date" id="admin-date-to" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;">
+        <input type="date" id="admin-date-to" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
         <button onclick="loadAdminData()" style="padding:5px 14px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;font-weight:600;">조회</button>
       </div>
 
@@ -1092,7 +1092,7 @@
         기준 금요일을 선택하면 해당 주 금요일~다음 주 목요일까지의 데이터가 포함돼요.
       </div>
       <div class="m-lbl">기준 금요일 선택</div>
-      <input type="date" id="dl-date" class="m-input" style="cursor:pointer;">
+      <input type="date" id="dl-date" class="m-input" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="cursor:pointer;">
       <div id="dl-range-preview" style="font-size:12px;color:var(--accent);margin-top:6px;font-weight:500;"></div>
       <div class="m-lbl" style="margin-top:14px;">포함 내용</div>
       <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
@@ -1870,7 +1870,7 @@ function renderTasks(){
           <div style="display:flex;gap:6px;margin-top:5px;align-items:center;">
             <input class="edit-input" id="ei-note" value="${esc(t.note||'')}" placeholder="비고 (선택)" style="flex:1;">
             <span style="font-size:11px;color:var(--text3);white-space:nowrap;">📅 날짜 이동:</span>
-            <input type="date" id="ei-date" value="${curDate}" style="border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+            <input type="date" id="ei-date" value="${curDate}" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
           </div>
         </td>
         <td><button class="del-btn" onclick="delTask(${i})">×</button></td>
@@ -5415,6 +5415,31 @@ window.addEventListener('popstate', async (e)=>{
 function showLoading(msg){document.getElementById('loading-msg').textContent=msg||'처리 중...';document.getElementById('loading').classList.add('open');}
 function hideLoading(){document.getElementById('loading').classList.remove('open');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+
+/* ═══════════════════════════════════════
+   DATE PICKER CLICK ENHANCEMENT
+═══════════════════════════════════════ */
+function openDatePicker(input){
+  if(!input) return;
+  if(typeof input.showPicker==='function'){
+    try{ input.showPicker(); return; }catch(e){}
+  }
+  try{ input.focus(); }catch(e){}
+}
+
+document.addEventListener('click',e=>{
+  const input=e.target.closest('input[type="date"]');
+  if(!input) return;
+  openDatePicker(input);
+});
+
+document.addEventListener('keydown',e=>{
+  if((e.key==='Enter' || e.key===' ') && e.target && e.target.matches('input[type="date"]')){
+    e.preventDefault();
+    openDatePicker(e.target);
+  }
+});
 
 /* ═══════════════════════════════════════
    START

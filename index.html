@@ -3931,7 +3931,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     workDayDatas.forEach(({date,data:d})=>{
       (d.tasks||[]).filter(t=>t.minutesTitle).forEach((t,i)=>{
         hasMin=true;
-        const r=ws2.addRow([]);r.height=120;
+        const r=ws2.addRow([]);r.height=100;
         const bg=i%2===0?C.white:C.altRow;
         data(r.getCell(1),date,{bg,align:'center'});
         data(r.getCell(2),t.name||'',{bg,wrap:true});
@@ -3948,7 +3948,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
       data(r.getCell(1),'이번 주 회의록이 없어요',{fg:'9E9890',align:'center'});
     }
   }
-
+  
   // ══════════════════════════════
   // 시트3: 이월 업무
   // ══════════════════════════════
@@ -5245,7 +5245,7 @@ async function adminDownloadAll(){
   ws1.views=[{showGridLines:false}];
   ws1.columns=[{width:30},{width:9},{width:9},{width:9},{width:10}];
 
-  ws1.mergeCells('A1:G1');
+  ws1.mergeCells('A1:E1');
   const t1=ws1.getCell('A1');
   t1.value='주간업무보고 — 전체 팀 요약';
   t1.font={name:'Malgun Gothic',size:14,bold:true,color:{argb:'FF'+C.headerBg}};
@@ -5253,7 +5253,7 @@ async function adminDownloadAll(){
   t1.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
   ws1.getRow(1).height=32;
 
-  ws1.mergeCells('A2:G2');
+  ws1.mergeCells('A2:E2');
   const t2=ws1.getCell('A2');
   t2.value=`기간: ${from} ~ ${to}   /   생성일: ${todayStr()}`;
   t2.font={name:'Malgun Gothic',size:10,color:{argb:'FF8B7355'}};
@@ -5293,8 +5293,6 @@ async function adminDownloadAll(){
   hdr(tr.getCell(3),teamDone,C.headerBg,C.headerFg,11,true,'center');
   hdr(tr.getCell(4),teamTotal-teamDone,C.headerBg,C.headerFg,11,true,'center');
   hdr(tr.getCell(5),teamRate+'%',C.headerBg,C.headerFg,12,true,'center');
-  ws1.mergeCells(`F${ws1.rowCount}:G${ws1.rowCount}`);
-  hdr(tr.getCell(6),'',C.headerBg,C.headerFg,10,false,'center');
 
   // ── 사용자별 시트 ──
   for(const u of adminAllData){

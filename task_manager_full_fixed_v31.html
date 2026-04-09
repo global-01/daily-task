@@ -3700,23 +3700,16 @@ document.getElementById('dl-date').addEventListener('change',updateDlPreview);
 
 /* ── Excel 스타일 헬퍼 ── */
 
-function calcExcelRowHeight(texts,widths,base=18,maxHeight=null){
+function calcExcelRowHeight(texts,widths,base=18){
   let maxLines=1;
   (texts||[]).forEach((txt,i)=>{
     if(txt===null||txt===undefined||txt==='') return;
     const width=Math.max(Number((widths||[])[i]||20), 8);
-    const parts=String(txt).split(/
-?
-/);
-    let lines=0;
-    parts.forEach(part=>{
-      const charsPerLine=width*1.8; // 한글 고려
-      lines += Math.max(1, Math.ceil(part.length/charsPerLine));
-    });
+    const charsPerLine=width*1.8; // 한글 고려
+    const lines=Math.max(1, Math.ceil(String(txt).length/charsPerLine));
     if(lines>maxLines) maxLines=lines;
   });
-  const computed=Math.max(base, maxLines*16+4);
-  return maxHeight ? Math.min(computed, maxHeight) : computed;
+  return Math.max(base, maxLines*16+4);
 }
 
 function autoFitWorksheetColumns(ws, opts={}){
@@ -3934,7 +3927,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     workDayDatas.forEach(({date,data:d})=>{
       (d.tasks||[]).filter(t=>t.minutesTitle).forEach((t,i)=>{
         hasMin=true;
-        const h=calcHeight([t.name,t.minutesTitle,t.minutesAttendees,t.minutesContent,t.minutesAction],[28,28,20,85,40],22,250);
+        const h=Math.min(calcHeight([t.name,t.minutesTitle,t.minutesAttendees,t.minutesContent,t.minutesAction],[28,28,20,85,40],22),250);
         const r=ws2.addRow([]);r.height=h;
         const bg=i%2===0?C.white:C.altRow;
         data(r.getCell(1),date,{bg,align:'center'});

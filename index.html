@@ -2257,8 +2257,12 @@ async function renderCalendar(){
   const avgRate=daysWithData.length?Math.round(daysWithData.reduce((a,b)=>a+Math.round((b.summary.done/b.summary.total)*100),0)/daysWithData.length):0;
   const totalT=daysWithData.reduce((a,b)=>a+b.summary.total,0);
   const totalD=daysWithData.reduce((a,b)=>a+b.summary.done,0);
-  const best=daysWithData.reduce((bst,d)=>{const r=Math.round(d.summary.done/d.summary.total*100);return(!bst||r>bst.rate)?{...d,rate:r}:bst;},null);
-  const bestDate=best?Object.entries(calData).find(([k,v])=>v===best)?.[0]:'';
+  const best=Object.entries(calData).reduce((bst,[date,d])=>{
+    if(!d.summary||!d.summary.total) return bst;
+    const r=Math.round(d.summary.done/d.summary.total*100);
+    return (!bst||r>bst.rate)?{date,rate:r,...d}:bst;
+  },null);
+  const bestDate=best?best.date:'';
 
   document.getElementById('cal-summary').innerHTML=`
     <div class="cal-sum-card"><div class="cal-sum-lbl">월 평균 달성률</div><div class="cal-sum-val">${avgRate}%</div><div class="cal-sum-sub">${daysWithData.length}일 기록됨</div></div>
@@ -3927,7 +3931,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     workDayDatas.forEach(({date,data:d})=>{
       (d.tasks||[]).filter(t=>t.minutesTitle).forEach((t,i)=>{
         hasMin=true;
-        const r=ws2.addRow([]);r.height=100;
+        const r=ws2.addRow([]);r.height=120;
         const bg=i%2===0?C.white:C.altRow;
         data(r.getCell(1),date,{bg,align:'center'});
         data(r.getCell(2),t.name||'',{bg,wrap:true});
@@ -5239,7 +5243,7 @@ async function adminDownloadAll(){
   // ── 시트1: 전체 팀 요약 ──
   const ws1=wb.addWorksheet('전체 팀 요약');
   ws1.views=[{showGridLines:false}];
-  ws1.columns=[{width:30},{width:9},{width:9},{width:9},{width:10},{width:16},{width:16}];
+  ws1.columns=[{width:30},{width:9},{width:9},{width:9},{width:10}];
 
   ws1.mergeCells('A1:G1');
   const t1=ws1.getCell('A1');
@@ -5260,7 +5264,7 @@ async function adminDownloadAll(){
   ws1.addRow([]);ws1.getRow(3).height=8;
 
   const sh=ws1.addRow([]);sh.height=22;
-  ['이름','총 업무','완료','미완료','달성률','마지막 기록','마지막 접속'].forEach((h,i)=>{
+  ['이름','총 업무','완료','미완료','달성률'].forEach((h,i)=>{
     hdr(sh.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
   });
 
@@ -5279,8 +5283,6 @@ async function adminDownloadAll(){
     data(r.getCell(3),done,{bg:C.doneBg,fg:C.doneFg,align:'center',bold:true});
     data(r.getCell(4),total-done,{bg:total-done>0?C.undoneBg:bg,fg:total-done>0?C.undoneFg:'2C2825',align:'center'});
     data(r.getCell(5),rate+'%',{bg:rateBg,fg:rateFg,align:'center',bold:true});
-    data(r.getCell(6),u.last_active||'없음',{bg,align:'center'});
-    data(r.getCell(7),u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'없음',{bg,align:'center'});
   });
 
   // 팀 합계

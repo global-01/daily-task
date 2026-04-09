@@ -1359,7 +1359,7 @@ async function signInWithEmail(){
     history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');
     isAdmin=await checkAdmin();
     if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-    await loadDay(curDate);showView('today',{push:false});await loadCategories();checkAndCarryOver();recurringCache=null;injectRecurringTasks();
+    await loadDay(curDate);showView('today',{push:false});await loadCategories();recurringCache=null;injectRecurringTasks();
   }catch(e){errEl.textContent='오류가 발생했어요: '+e.message;errEl.style.display='block';}
 }
 
@@ -1387,7 +1387,7 @@ async function signUpWithEmail(){
       currentSession={...data,user};localStorage.setItem('sb_session',JSON.stringify(currentSession));
       showMainApp();try{sessionStorage.setItem('lastView','today');}catch{} history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');isAdmin=await checkAdmin();
       if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-      await loadDay(curDate);showView('today',{push:false});await loadCategories();checkAndCarryOver();recurringCache=null;injectRecurringTasks();
+      await loadDay(curDate);showView('today',{push:false});await loadCategories();recurringCache=null;injectRecurringTasks();
     } else {
       errEl.style.color='var(--green)';
       errEl.textContent='✅ 가입 완료! 이메일 확인 후 로그인해 주세요.';errEl.style.display='block';
@@ -1808,12 +1808,12 @@ async function init(){
 
   await loadCategories();
   toggleTaskTypeFields();
-  checkAndCarryOver();
   recurringCache=null;
   injectRecurringTasks();
 }
 
 async function loadDay(date){
+  await checkAndCarryOver(date);
   // 1) 캐시 있으면 즉시 표시 (로딩 없이)
   const cached=cacheGet('day_'+date);
   if(cached){curDay=cached;renderToday();}
@@ -3020,54 +3020,63 @@ function nextWorkday(dateStr){
 ═══════════════════════════════════════ */
 const CARRY_KEY='daily_carry_checked';
 
-async function checkAndCarryOver(){
-  const today=todayStr();
+async function checkAndCarryOver(targetDate=todayStr()){
+  if(!targetDate||!isWorkday(targetDate)) return;
 
-  // 오늘 데이터 먼저 확인 (DB 기반으로 이미 이월됐는지 체크)
-  const todayDay=await fetchDay(today);
-  todayDay.tasks=todayDay.tasks||[];
+  const realToday=todayStr();
+  if(targetDate>realToday) return; // 미래 날짜에는 자동 이월 생성 금지
 
-  // 중복 방지: 이름 기준으로 이미 이월된 업무 Set 생성
-  const alreadyCarriedNames=new Set(
-    todayDay.tasks.filter(t=>t.carriedFrom).map(t=>t.name)
+  const carryCheckKey=`${CARRY_KEY}_${targetDate}`;
+
+  // 대상 날짜 데이터 먼저 확인 (DB 기반으로 이미 이월됐는지 체크)
+  const targetDay=await fetchDay(targetDate);
+  targetDay.tasks=targetDay.tasks||[];
+
+  // 중복 방지: 이미 이월된 업무 식별자 Set 생성
+  const alreadyCarriedKeys=new Set(
+    targetDay.tasks
+      .filter(t=>t.carriedFrom)
+      .map(t=>`${t.carryOriginDate||t.carriedFrom||''}__${t.name||''}`)
   );
 
-  // localStorage로 오늘 실행 여부 체크 (UI 중복 방지용)
-  const lastChecked=localStorage.getItem(CARRY_KEY);
-  // 이미 오늘 이월했고 이월된 업무도 있으면 스킵
-  if(lastChecked===today&&alreadyCarriedNames.size>0)return;
+  const lastChecked=localStorage.getItem(carryCheckKey);
+  if(lastChecked==='done'&&alreadyCarriedKeys.size>0)return;
 
-  // 어제(또는 가장 최근 업무일) 미완료 가져오기
-  let prev=addDays(today,-1);
+  // 직전 업무일 찾기
+  let prev=addDays(targetDate,-1);
   let safety=0;
   while(!isWorkday(prev)&&safety<7){prev=addDays(prev,-1);safety++;}
-  if(prev===today)return;
+  if(prev===targetDate)return;
 
   const prevDay=await fetchDay(prev);
-  const undone=(prevDay.tasks||[]).filter(t=>!t.done&&!t.isRecurring&&!t.isPeriodTask);
-  if(!undone.length){localStorage.setItem(CARRY_KEY,today);return;}
+  const prevTasks=(prevDay&&Array.isArray(prevDay.tasks))?prevDay.tasks:[];
+  const hasPrevSavedData=prevTasks.length>0 || !!(prevDay?.agenda||'').trim() || !!(prevDay?.memo||'').trim();
+  if(!hasPrevSavedData){localStorage.setItem(carryCheckKey,'done');return;}
 
-  // 최초 등록 기준 출처 유지
-  const[,m,d]=prev.split('-');
+  const undone=prevTasks.filter(t=>!t.done&&!t.isRecurring&&!t.isPeriodTask);
+  if(!undone.length){localStorage.setItem(carryCheckKey,'done');return;}
+
+  const [,m,d]=prev.split('-');
   const prevCarryLabel=parseInt(m)+'/'+parseInt(d);
 
   let added=0;
   undone.forEach(t=>{
-    if(!alreadyCarriedNames.has(t.name)){
-      const originLabel=t.carriedFrom||prevCarryLabel;
-      const originDate=t.carryOriginDate||prev;
-      todayDay.tasks.push({...t,done:false,carriedFrom:originLabel,carryOriginDate:originDate});
-      alreadyCarriedNames.add(t.name); // 같은 실행 내에서도 중복 방지
-      added++;
-    }
+    const originLabel=t.carriedFrom||prevCarryLabel;
+    const originDate=t.carryOriginDate||prev;
+    const dedupeKey=`${originDate}__${t.name||''}`;
+    if(alreadyCarriedKeys.has(dedupeKey)) return;
+
+    targetDay.tasks.push({...t,done:false,carriedFrom:originLabel,carryOriginDate:originDate});
+    alreadyCarriedKeys.add(dedupeKey);
+    added++;
   });
 
   if(added>0){
-    await saveDay(today,todayDay);
-    if(curDate===today){curDay=todayDay;renderToday();}
-    toast(`🔄 미완료 ${added}개가 오늘로 이월됐어요`);
+    await saveDay(targetDate,targetDay);
+    if(curDate===targetDate){curDay=targetDay;renderToday();}
+    if(targetDate===todayStr()) toast(`🔄 미완료 ${added}개가 오늘로 이월됐어요`);
   }
-  localStorage.setItem(CARRY_KEY,today);
+  localStorage.setItem(carryCheckKey,'done');
 }
 
 
@@ -3690,6 +3699,49 @@ function updateDlPreview(){
 document.getElementById('dl-date').addEventListener('change',updateDlPreview);
 
 /* ── Excel 스타일 헬퍼 ── */
+
+function calcExcelRowHeight(texts,widths,base=18){
+  let maxLines=1;
+  (texts||[]).forEach((txt,i)=>{
+    if(txt===null||txt===undefined||txt==='') return;
+    const width=Math.max(Number((widths||[])[i]||20), 8);
+    const charsPerLine=width*1.8; // 한글 고려
+    const lines=Math.max(1, Math.ceil(String(txt).length/charsPerLine));
+    if(lines>maxLines) maxLines=lines;
+  });
+  return Math.max(base, maxLines*16+4);
+}
+
+function autoFitWorksheetColumns(ws, opts={}){
+  const minWidth=opts.minWidth ?? 8;
+  const maxWidth=opts.maxWidth ?? 85;
+  const fixedCols=opts.fixedCols || {};
+  ws.columns.forEach((col, idx)=>{
+    const colNumber=idx+1;
+    if(fixedCols[colNumber]!==undefined){
+      col.width=fixedCols[colNumber];
+      return;
+    }
+    let longest=0;
+    col.eachCell({includeEmpty:true}, cell=>{
+      let v=cell.value;
+      if(v===null||v===undefined) return;
+      if(typeof v==='object'){
+        if(v.richText) v=v.richText.map(x=>x.text||'').join('');
+        else if(v.text) v=v.text;
+        else if(v.result!==undefined) v=v.result;
+        else v=String(v);
+      }
+      const lines=String(v).split(/\r?\n/);
+      lines.forEach(line=>{
+        const normalized=line.replace(/[\u3131-\uD79D]/g,'AA'); // 한글 폭 보정
+        if(normalized.length>longest) longest=normalized.length;
+      });
+    });
+    col.width=Math.max(minWidth, Math.min(maxWidth, longest+2));
+  });
+}
+
 function xlsStyle(wb_unused){
   // 색상 팔레트
   const C={
@@ -3733,16 +3785,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   const {C,hdr,data}=xlsStyle();
 
   // 행 높이 계산 헬퍼 (텍스트 길이 + 컬럼 너비 기준)
-  function calcHeight(texts,widths,base=18){
-    let maxLines=1;
-    texts.forEach((txt,i)=>{
-      if(!txt)return;
-      const charsPerLine=(widths[i]||20)*1.8; // 한글 고려
-      const lines=Math.ceil(String(txt).length/charsPerLine);
-      if(lines>maxLines)maxLines=lines;
-    });
-    return Math.max(base, maxLines*16+4);
-  }
+  const calcHeight=calcExcelRowHeight;
 
   // 주말 제외 필터
   const workDayDatas=dayDatas.filter(({date})=>{
@@ -3802,7 +3845,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
       tasks.forEach((t,i)=>{
         const noteLen=t.note?t.note.length:0;
         const nameLen=t.name?t.name.length:0;
-        const h=calcHeight([t.name,t.note],[36,30]);
+        const h=calcHeight([t.name,t.note],[ws1ColWidths[4],ws1ColWidths[7]]);
         const r=ws1.addRow([]);r.height=h;
         const bg=i%2===1?C.altRow:C.white;
         const doneBg=t.done?C.doneBg:(t.carriedFrom?C.carryBg:bg);
@@ -3835,7 +3878,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     // 특이사항
     if(opts.incMemo&&d.memo&&d.memo.trim()){
       const mr=ws1.addRow([]);
-      mr.height=calcHeight([d.memo],[80],28);
+      mr.height=calcHeight([d.memo],[85],28);
       const memoRowIdx=ws1.rowCount;
       ws1.mergeCells(`A${memoRowIdx}:B${memoRowIdx}`);
       ws1.mergeCells(`C${memoRowIdx}:I${memoRowIdx}`);
@@ -3928,7 +3971,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
       const dow=new Date(yy,mm-1,dd2).getDay();
       (d.tasks||[]).filter(t=>t.carriedFrom).forEach((t,i)=>{
         hasCarry=true;
-        const h=calcHeight([t.name],[40]);
+        const h=calcHeight([t.name],[85]);
         const r=ws3.addRow([]);r.height=h;
         const bg=i%2===0?C.white:C.altRow;
         data(r.getCell(1),date,{bg,align:'center'});
@@ -3944,6 +3987,17 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
       ws3.mergeCells('A3:F3');
       data(r.getCell(1),'이번 주 이월 업무가 없어요 ✓',{fg:'3B6D11',align:'center',bold:true,bg:C.doneBg});
     }
+  }
+
+  // 열너비 자동조절 + 업무내용 계열 열은 최대 85로 제한
+  autoFitWorksheetColumns(ws1,{minWidth:5,maxWidth:85});
+  if(opts.incMinutes){
+    const ws2=wb.getWorksheet('회의록');
+    if(ws2) autoFitWorksheetColumns(ws2,{minWidth:8,maxWidth:85});
+  }
+  if(opts.incCarry){
+    const ws3=wb.getWorksheet('이월 업무');
+    if(ws3) autoFitWorksheetColumns(ws3,{minWidth:8,maxWidth:85});
   }
 
   return wb;
@@ -3982,6 +4036,11 @@ async function downloadWeeklyReport(){
   const userName=email.split('@')[0]||'사용자';
 
   const wb=await buildExcelWorkbook(dayDatas,userName,dates,opts);
+
+  autoFitWorksheetColumns(ws1,{minWidth:8,maxWidth:85});
+  wb.worksheets.forEach(ws=>{
+    if(ws.name!=='전체 팀 요약') autoFitWorksheetColumns(ws,{minWidth:5,maxWidth:85});
+  });
 
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -5269,14 +5328,16 @@ async function adminDownloadAll(){
       const dow=new Date(yy,mm-1,dd2).getDay();
       const memo=d?.memo||'';
       if(!tasks.length){
-        const r=wsu.addRow([]);r.height=20;
+        const rowHeight=calcExcelRowHeight([memo],[28],20);
+        const r=wsu.addRow([]);r.height=rowHeight;
         data(r.getCell(1),date,{bg:C.altRow,align:'center'});
         data(r.getCell(2),DAYS[dow]+'요일',{bg:C.altRow,align:'center'});
         for(let i=3;i<=9;i++)data(r.getCell(i),'',{bg:C.altRow});
         data(r.getCell(10),memo,{bg:C.altRow,wrap:true,fg:'9E9890'});
       } else {
         tasks.forEach((t,i)=>{
-          const r=wsu.addRow([]);r.height=20;
+          const rowHeight=calcExcelRowHeight([t.name||'', t.note||'', i===0?memo:''], [85,20,28], 20);
+          const r=wsu.addRow([]);r.height=rowHeight;
           const bg=i%2===0?C.white:C.altRow;
           if(i===0){
             data(r.getCell(1),date,{bg,align:'center',bold:true});

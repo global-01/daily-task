@@ -3800,7 +3800,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   const ws1=wb.addWorksheet('주간 업무 일지',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1}});
   ws1.views=[{showGridLines:false}];
   // 컬럼: 날짜(12) 요일(7) No(5) 구분(12) 업무내용(36) 우선순위(9) 완료(9) 비고(30) 이월(11)
-  const ws1ColWidths=[12,7,5,12,85,9,9,30,11];
+  const ws1ColWidths=[15,10,5,15,85,8,8,30,8];
   ws1.columns=ws1ColWidths.map(w=>({width:w}));
 
   // 타이틀
@@ -3908,7 +3908,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   if(opts.incMinutes){
     const ws2=wb.addWorksheet('회의록',{pageSetup:{paperSize:9,orientation:'landscape'}});
     ws2.views=[{showGridLines:false}];
-    const ws2ColWidths=[12,20,25,16,20,50,40];
+    const ws2ColWidths=[15,28,28,18,20,85,40];
     ws2.columns=ws2ColWidths.map(w=>({width:w}));
 
     ws2.mergeCells('A1:G1');
@@ -3951,7 +3951,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
   if(opts.incCarry){
     const ws3=wb.addWorksheet('이월 업무',{pageSetup:{paperSize:9,orientation:'portrait'}});
     ws3.views=[{showGridLines:false}];
-    ws3.columns=[{width:12},{width:8},{width:12},{width:85},{width:12},{width:12}];
+    ws3.columns=[{width:15},{width:10},{width:15},{width:85},{width:15},{width:8}];
 
     ws3.mergeCells('A1:F1');
     ws3.getCell('A1').value='이 월 업 무 현 황';
@@ -3989,15 +3989,15 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
     }
   }
 
-  // 열너비 자동조절 + 업무내용 계열 열은 최대 85로 제한
-  autoFitWorksheetColumns(ws1,{minWidth:5,maxWidth:85});
+  // 열너비는 기본 고정값 유지. 텍스트형 긴 컬럼만 최대값 제한 하에 자동조절
+  autoFitWorksheetColumns(ws1,{minWidth:5,maxWidth:85,fixedCols:{1:15,2:10,3:5,4:15,5:85,6:8,7:8,8:30,9:8}});
   if(opts.incMinutes){
     const ws2=wb.getWorksheet('회의록');
-    if(ws2) autoFitWorksheetColumns(ws2,{minWidth:8,maxWidth:85});
+    if(ws2) autoFitWorksheetColumns(ws2,{minWidth:8,maxWidth:85,fixedCols:{1:15,2:28,3:28,4:18,5:20,6:85,7:40}});
   }
   if(opts.incCarry){
     const ws3=wb.getWorksheet('이월 업무');
-    if(ws3) autoFitWorksheetColumns(ws3,{minWidth:8,maxWidth:85});
+    if(ws3) autoFitWorksheetColumns(ws3,{minWidth:8,maxWidth:85,fixedCols:{1:15,2:10,3:15,4:85,5:15,6:8}});
   }
 
   return wb;
@@ -4037,11 +4037,17 @@ async function downloadWeeklyReport(){
 
     const wb=await buildExcelWorkbook(dayDatas,userName,dates,opts);
 
-    wb.worksheets.forEach(ws=>{
-      autoFitWorksheetColumns(ws,{minWidth:5,maxWidth:85});
-    });
+    // 시트별 열너비 정책 유지: 고정 컬럼은 고정, 긴 텍스트 컬럼만 제한값 적용
+    // buildExcelWorkbook 내부에서 이미 적용되므로 여기서 전체 재자동조절하지 않음.
 
-    const buf=await wb.xlsx.writeBuffer();
+    // 관리자 다운로드 시트도 컬럼 폭 정책 고정
+  autoFitWorksheetColumns(ws1,{minWidth:7,maxWidth:30,fixedCols:{1:30,2:9,3:9,4:9,5:10,6:16,7:16}});
+  wb.worksheets.forEach(ws=>{
+    if(ws.name==='전체 팀 요약') return;
+    autoFitWorksheetColumns(ws,{minWidth:5,maxWidth:85,fixedCols:{1:15,2:10,3:5,4:15,5:85,6:8,7:8,8:30,9:8,10:40}});
+  });
+
+  const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
@@ -5300,7 +5306,7 @@ async function adminDownloadAll(){
     const sheetName=u.email.split('@')[0].slice(0,28);
     const wsu=wb.addWorksheet(sheetName);
     wsu.views=[{showGridLines:false}];
-    wsu.columns=[{width:12},{width:7},{width:5},{width:12},{width:85},{width:9},{width:9},{width:20},{width:11},{width:28}];
+    wsu.columns=[{width:15},{width:10},{width:5},{width:15},{width:85},{width:8},{width:8},{width:30},{width:8},{width:40}];
 
     wsu.mergeCells('A1:J1');
     const tu=wsu.getCell('A1');

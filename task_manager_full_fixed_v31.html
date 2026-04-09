@@ -1858,6 +1858,10 @@ function renderTasks(){
               ${getCategoryOptionsHtml(t.category||'', t.categoryPart||'')}
             </select>
             <input class="edit-input" id="ei-name" value="${esc(t.name)}" placeholder="업무명" style="flex:1;min-width:120px;">
+            <select class="task-type-select" id="ei-type" onchange="toggleEditTaskTypeFields()" style="width:92px;">
+              <option value="normal" ${!t.isPeriodTask?'selected':''}>일반업무</option>
+              <option value="period" ${t.isPeriodTask?'selected':''}>기간업무</option>
+            </select>
             <select class="pri-select" id="ei-pri">
               <option value="4" ${t.priority===4?'selected':''}>🔴 최우선</option>
               <option value="3" ${t.priority===3?'selected':''}>🟠 높음</option>
@@ -1867,11 +1871,16 @@ function renderTasks(){
             <button class="edit-save-btn" onclick="saveEdit(${i})">저장</button>
             <button class="edit-cancel-btn" onclick="cancelEdit()">취소</button>
           </div>
-          <div style="display:flex;gap:6px;margin-top:5px;align-items:center;">
-            <input class="edit-input" id="ei-note" value="${esc(t.note||'')}" placeholder="비고 (선택)" style="flex:1;">
+          <div style="display:flex;gap:6px;margin-top:5px;align-items:center;flex-wrap:wrap;">
+            <input class="edit-input" id="ei-note" value="${esc(t.note||'')}" placeholder="비고 (선택)" style="flex:1;min-width:180px;">
+            <div class="period-fields ${t.isPeriodTask?'show':''}" id="ei-period-fields" style="margin-left:0;">
+              <input class="period-date" id="ei-start" type="date" value="${esc(t.periodStart||curDate)}" title="날짜를 클릭해 선택" onclick="openDatePicker(this)">
+              <input class="period-date" id="ei-end" type="date" value="${esc(t.periodEnd||curDate)}" title="날짜를 클릭해 선택" onclick="openDatePicker(this)">
+            </div>
             <span style="font-size:11px;color:var(--text3);white-space:nowrap;">📅 날짜 이동:</span>
             <input type="date" id="ei-date" value="${curDate}" title="날짜를 클릭해 선택" onclick="openDatePicker(this)" style="border:1px solid var(--border2);border-radius:4px;padding:4px 7px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
           </div>
+          <div id="ei-period-desc" style="display:${t.isPeriodTask?'block':'none'};margin-top:5px;font-size:11px;color:var(--text3);">이 수정은 현재 날짜 업무에만 반영돼요.</div>
         </td>
         <td><button class="del-btn" onclick="delTask(${i})">×</button></td>
         <td></td>
@@ -1903,10 +1912,34 @@ function renderTasks(){
 
 function startEdit(i){editingIdx=i;renderTasks();setTimeout(()=>{const el=document.getElementById('ei-name');if(el)el.focus();},50);}
 function cancelEdit(){editingIdx=-1;renderTasks();}
+function toggleEditTaskTypeFields(){
+  const typeEl=document.getElementById('ei-type');
+  const wrap=document.getElementById('ei-period-fields');
+  const desc=document.getElementById('ei-period-desc');
+  if(!typeEl||!wrap)return;
+  const isPeriod=typeEl.value==='period';
+  wrap.classList.toggle('show',isPeriod);
+  if(desc)desc.style.display=isPeriod?'block':'none';
+  if(isPeriod){
+    const today=todayStr();
+    const startEl=document.getElementById('ei-start');
+    const endEl=document.getElementById('ei-end');
+    if(startEl&&!startEl.value)startEl.value=today;
+    if(endEl&&!endEl.value)endEl.value=startEl?.value||today;
+  }
+}
 async function saveEdit(i){
   const name=document.getElementById('ei-name').value.trim();
   if(!name)return;
   const targetDate=document.getElementById('ei-date')?.value||curDate;
+  const editType=document.getElementById('ei-type')?.value||'normal';
+  const editStart=document.getElementById('ei-start')?.value||curDate;
+  const editEnd=document.getElementById('ei-end')?.value||curDate;
+
+  if(editType==='period'){
+    if(!editStart||!editEnd){toast('기간업무는 시작일과 종료일을 선택해 주세요');return;}
+    if(editEnd<editStart){toast('종료일이 시작일보다 빠를 수 없어요');return;}
+  }
 
   const editCatMeta=getSelectedCategoryMeta('ei-cat');
   const task={
@@ -1916,7 +1949,15 @@ async function saveEdit(i){
     name,
     priority:parseInt(document.getElementById('ei-pri').value),
     note:document.getElementById('ei-note').value.trim(),
+    isPeriodTask: editType==='period',
+    periodStart: editType==='period' ? editStart : '',
+    periodEnd: editType==='period' ? editEnd : '',
   };
+  if(editType!=='period'){
+    delete task.periodTaskId;
+  } else if(!task.periodTaskId){
+    task.periodTaskId = makePeriodTaskId();
+  }
 
   if(targetDate && targetDate!==curDate){
     // 날짜 이동: 현재 날짜에서 삭제 후 대상 날짜에 추가

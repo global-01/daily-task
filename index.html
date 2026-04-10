@@ -1956,6 +1956,127 @@ async function ensurePeriodTaskRange(task, anchorDate){
   return added;
 }
 
+
+function getRangeBounds(startA,endA,startB,endB){
+  const start = [startA,startB].filter(Boolean).sort()[0] || startA || startB || '';
+  const end = [endA,endB].filter(Boolean).sort().slice(-1)[0] || endA || endB || '';
+  return {start,end};
+}
+
+async function syncPeriodTaskDateRange(originalTask, updatedTask, anchorDate){
+  const periodTaskId = updatedTask?.periodTaskId || originalTask?.periodTaskId;
+  if(!periodTaskId) return {added:0, removed:0, updated:0};
+
+  const oldStart = originalTask?.periodStart || anchorDate;
+  const oldEnd = originalTask?.periodEnd || anchorDate;
+  const newStart = updatedTask?.periodStart || anchorDate;
+  const newEnd = updatedTask?.periodEnd || anchorDate;
+  const bounds = getRangeBounds(oldStart, oldEnd, newStart, newEnd);
+  if(!bounds.start || !bounds.end) return {added:0, removed:0, updated:0};
+
+  let added=0, removed=0, updated=0;
+  const dates = getDateRangeList(bounds.start, bounds.end);
+
+  for(const date of dates){
+    const dayData = await fetchDay(date);
+    dayData.tasks = dayData.tasks || [];
+    let changed = false;
+    let found = false;
+    const nextTasks = [];
+
+    for(const t of dayData.tasks){
+      if(t.periodTaskId !== periodTaskId){
+        nextTasks.push(t);
+        continue;
+      }
+
+      if(date < newStart || date > newEnd){
+        removed++;
+        changed = true;
+        continue;
+      }
+
+      found = true;
+      const nextTask = {
+        ...t,
+        isPeriodTask: true,
+        periodTaskId,
+        periodStart: newStart,
+        periodEnd: newEnd
+      };
+
+      if(
+        nextTask.periodStart !== t.periodStart ||
+        nextTask.periodEnd !== t.periodEnd ||
+        nextTask.isPeriodTask !== t.isPeriodTask
+      ){
+        updated++;
+        changed = true;
+      }
+      nextTasks.push(nextTask);
+    }
+
+    if(date >= newStart && date <= newEnd && !found){
+      const baseTask = (date === anchorDate)
+        ? {
+            ...updatedTask,
+            periodTaskId,
+            isPeriodTask: true,
+            periodStart: newStart,
+            periodEnd: newEnd
+          }
+        : {
+            ...updatedTask,
+            done: false,
+            note: '',
+            minutesTitle: '',
+            minutesDatetime: '',
+            minutesAttendees: '',
+            minutesContent: '',
+            minutesAction: '',
+            carriedFrom: undefined,
+            periodTaskId,
+            isPeriodTask: true,
+            periodStart: newStart,
+            periodEnd: newEnd
+          };
+      nextTasks.push(baseTask);
+      added++;
+      changed = true;
+    }
+
+    if(changed){
+      dayData.tasks = nextTasks;
+      await saveDay(date, dayData);
+    }
+  }
+
+  return {added, removed, updated};
+}
+
+async function removePeriodTaskSeries(originalTask, excludeDate=''){
+  const periodTaskId = originalTask?.periodTaskId;
+  if(!periodTaskId || !originalTask?.periodStart || !originalTask?.periodEnd) return 0;
+
+  let removed = 0;
+  const dates = getDateRangeList(originalTask.periodStart, originalTask.periodEnd);
+
+  for(const date of dates){
+    if(excludeDate && date === excludeDate) continue;
+    const dayData = await fetchDay(date);
+    dayData.tasks = dayData.tasks || [];
+    const before = dayData.tasks.length;
+    dayData.tasks = dayData.tasks.filter(t => t.periodTaskId !== periodTaskId);
+    if(dayData.tasks.length !== before){
+      removed += (before - dayData.tasks.length);
+      await saveDay(date, dayData);
+    }
+  }
+  return removed;
+}
+
+
+
 async function saveEdit(i){
   const originalTask={...(curDay.tasks[i]||{})};
   const name=document.getElementById('ei-name').value.trim();
@@ -1990,27 +2111,63 @@ async function saveEdit(i){
   }
 
   let addedRangeCount=0;
+  let removedRangeCount=0;
+  let rangeUpdatedCount=0;
 
   if(targetDate && targetDate!==curDate){
-    // 날짜 이동: 현재 날짜에서 삭제 후 대상 날짜에 추가
     curDay.tasks.splice(i,1);
     editingIdx=-1;
     renderTasks();renderStatCards();
     await saveCurrent(true);
 
-    // 대상 날짜에 업무 추가
     const targetDay=await fetchDay(targetDate);
     targetDay.tasks=targetDay.tasks||[];
-    targetDay.tasks.push({...task,carriedFrom:undefined});
+
+    if(editType==='period' && task.periodTaskId){
+      let replaced=false;
+      targetDay.tasks=targetDay.tasks.map(t=>{
+        if(t.periodTaskId===task.periodTaskId){
+          replaced=true;
+          return {
+            ...t,
+            category: task.category,
+            categoryPart: task.categoryPart||'',
+            name: task.name,
+            priority: task.priority,
+            note: task.note,
+            isPeriodTask: true,
+            periodTaskId: task.periodTaskId,
+            periodStart: task.periodStart,
+            periodEnd: task.periodEnd
+          };
+        }
+        return t;
+      });
+      if(!replaced)targetDay.tasks.push({...task,carriedFrom:undefined});
+    } else {
+      targetDay.tasks.push({...task,carriedFrom:undefined});
+    }
     await saveDay(targetDate,targetDay);
 
-    // 일반업무 → 기간업무 변경 시, 나머지 기간 날짜 자동 생성
-    if(editType==='period' && !originalTask.isPeriodTask){
-      addedRangeCount=await ensurePeriodTaskRange(task,targetDate);
+    if(editType==='period'){
+      if(originalTask.isPeriodTask && originalTask.periodTaskId){
+        const syncResult = await syncPeriodTaskDateRange(originalTask, task, targetDate);
+        addedRangeCount = syncResult.added;
+        removedRangeCount = syncResult.removed;
+        rangeUpdatedCount = syncResult.updated;
+      } else {
+        addedRangeCount=await ensurePeriodTaskRange(task,targetDate);
+      }
+    } else if(originalTask.isPeriodTask && originalTask.periodTaskId){
+      removedRangeCount = await removePeriodTaskSeries(originalTask, targetDate);
     }
 
-    toast(addedRangeCount>0
-      ? `📅 "${name}" 이동 후 기간업무 ${addedRangeCount}일이 추가 생성됐어요`
+    const moveMessages = [];
+    if(addedRangeCount>0) moveMessages.push(`추가 ${addedRangeCount}일`);
+    if(removedRangeCount>0) moveMessages.push(`삭제 ${removedRangeCount}건`);
+    if(rangeUpdatedCount>0) moveMessages.push(`범위갱신 ${rangeUpdatedCount}건`);
+    toast(moveMessages.length
+      ? `📅 "${name}" 이동 완료 · ${moveMessages.join(' / ')}`
       : `📅 "${name}" 을 ${targetDate}로 이동했어요`);
   } else {
     curDay.tasks[i]=task;
@@ -2018,14 +2175,33 @@ async function saveEdit(i){
     renderTasks();renderStatCards();
     await saveCurrent(true);
 
-    // 일반업무 → 기간업무 변경 시, 나머지 기간 날짜 자동 생성
-    if(editType==='period' && !originalTask.isPeriodTask){
-      addedRangeCount=await ensurePeriodTaskRange(task,curDate);
+    if(editType==='period'){
+      if(originalTask.isPeriodTask && originalTask.periodTaskId){
+        const syncResult = await syncPeriodTaskDateRange(originalTask, task, curDate);
+        addedRangeCount = syncResult.added;
+        removedRangeCount = syncResult.removed;
+        rangeUpdatedCount = syncResult.updated;
+      } else {
+        addedRangeCount=await ensurePeriodTaskRange(task,curDate);
+      }
+    } else if(originalTask.isPeriodTask && originalTask.periodTaskId){
+      removedRangeCount = await removePeriodTaskSeries(originalTask, curDate);
     }
 
-    toast(addedRangeCount>0
-      ? `수정됐어요 · 기간업무 ${addedRangeCount}일이 추가 생성됐어요`
+    const updateMessages = [];
+    if(addedRangeCount>0) updateMessages.push(`추가 ${addedRangeCount}일`);
+    if(removedRangeCount>0) updateMessages.push(`삭제 ${removedRangeCount}건`);
+    if(rangeUpdatedCount>0) updateMessages.push(`범위갱신 ${rangeUpdatedCount}건`);
+    toast(updateMessages.length
+      ? `수정됐어요 · ${updateMessages.join(' / ')}`
       : '수정됐어요');
+  }
+
+  const currentCached=cacheGet('day_'+curDate);
+  if(currentCached){
+    curDay=currentCached;
+    renderTasks();
+    renderStatCards();
   }
 }
 
@@ -5606,3 +5782,4 @@ document.addEventListener('keydown',e=>{
 </script>
 </body>
 </html>
+

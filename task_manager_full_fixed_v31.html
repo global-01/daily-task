@@ -1956,11 +1956,113 @@ async function ensurePeriodTaskRange(task, anchorDate){
   return added;
 }
 
+function getPeriodTaskDates(task, fallbackDate){
+  if(task?.isPeriodTask && task.periodStart && task.periodEnd){
+    return getDateRangeList(task.periodStart, task.periodEnd);
+  }
+  return fallbackDate ? [fallbackDate] : [];
+}
+
+function makePeriodTaskSeed(task){
+  return {
+    category: task.category||'',
+    categoryPart: task.categoryPart||'',
+    name: task.name||'',
+    priority: task.priority||3,
+    done:false,
+    note:'',
+    minutesTitle:'',
+    minutesDatetime:'',
+    minutesAttendees:'',
+    minutesContent:'',
+    minutesAction:'',
+    carriedFrom:undefined,
+    isPeriodTask:true,
+    periodTaskId:task.periodTaskId,
+    periodStart:task.periodStart,
+    periodEnd:task.periodEnd
+  };
+}
+
+function applyPeriodTaskSeriesFields(baseTask, sourceTask, isAnchorDate){
+  const nextTask={
+    ...baseTask,
+    category: sourceTask.category||'',
+    categoryPart: sourceTask.categoryPart||'',
+    name: sourceTask.name||'',
+    priority: sourceTask.priority||3,
+    isPeriodTask:true,
+    periodTaskId: sourceTask.periodTaskId,
+    periodStart: sourceTask.periodStart,
+    periodEnd: sourceTask.periodEnd
+  };
+  if(isAnchorDate){
+    nextTask.note=sourceTask.note||'';
+  }
+  return nextTask;
+}
+
+async function syncPeriodTaskSeries(originalTask, updatedTask, anchorDate){
+  if(!updatedTask?.periodTaskId) updatedTask.periodTaskId=makePeriodTaskId();
+
+  const oldDates=getPeriodTaskDates(originalTask, anchorDate);
+  const newDates=getPeriodTaskDates(updatedTask, anchorDate);
+  const allDates=[...new Set([...oldDates, ...newDates])].sort();
+
+  let added=0;
+  let removed=0;
+  let touched=0;
+
+  for(const date of allDates){
+    const dayData=await fetchDay(date);
+    dayData.tasks=dayData.tasks||[];
+    const shouldExist=newDates.includes(date);
+    let changed=false;
+
+    const beforeLen=dayData.tasks.length;
+    dayData.tasks=dayData.tasks.filter(t=>{
+      if(t.periodTaskId!==updatedTask.periodTaskId) return true;
+      if(shouldExist) return true;
+      removed++;
+      changed=true;
+      return false;
+    });
+
+    let foundIndex=dayData.tasks.findIndex(t=>t.periodTaskId===updatedTask.periodTaskId);
+
+    if(shouldExist){
+      if(foundIndex>-1){
+        const prevTask=dayData.tasks[foundIndex];
+        dayData.tasks[foundIndex]=applyPeriodTaskSeriesFields(prevTask, updatedTask, date===anchorDate);
+        changed=true;
+      }else{
+        dayData.tasks.push(makePeriodTaskSeed({
+          ...updatedTask,
+          note: date===anchorDate ? (updatedTask.note||'') : ''
+        }));
+        added++;
+        changed=true;
+      }
+    }
+
+    if(changed){
+      touched++;
+      await saveDay(date,dayData);
+      if(date===curDate){
+        cacheSet('day_'+date,dayData);
+      }
+    }
+  }
+
+  return {added, removed, touched};
+}
+
 async function saveEdit(i){
   const originalTask={...(curDay.tasks[i]||{})};
   const name=document.getElementById('ei-name').value.trim();
   if(!name)return;
-  const targetDate=document.getElementById('ei-date')?.value||curDate;
+
+  let targetDate=document.getElementById('ei-date')?.value||curDate;
   const editType=document.getElementById('ei-type')?.value||'normal';
   const editStart=document.getElementById('ei-start')?.value||curDate;
   const editEnd=document.getElementById('ei-end')?.value||curDate;
@@ -1969,6 +2071,9 @@ async function saveEdit(i){
     if(!editStart||!editEnd){toast('기간업무는 시작일과 종료일을 선택해 주세요');return;}
     if(editEnd<editStart){toast('종료일이 시작일보다 빠를 수 없어요');return;}
     if(getDateRangeList(editStart,editEnd).length>60){toast('기간업무는 최대 60일까지만 설정할 수 있어요');return;}
+    if(targetDate<editStart || targetDate>editEnd){
+      targetDate=curDate>=editStart && curDate<=editEnd ? curDate : editStart;
+    }
   }
 
   const editCatMeta=getSelectedCategoryMeta('ei-cat');
@@ -1983,10 +2088,59 @@ async function saveEdit(i){
     periodStart: editType==='period' ? editStart : '',
     periodEnd: editType==='period' ? editEnd : '',
   };
+
   if(editType!=='period'){
     delete task.periodTaskId;
   } else if(!task.periodTaskId){
-    task.periodTaskId = makePeriodTaskId();
+    task.periodTaskId = originalTask.periodTaskId || makePeriodTaskId();
+  }
+
+  // 기존 기간업무 -> 일반업무
+  if(originalTask.isPeriodTask && editType!=='period'){
+    showLoading('기간업무 수정 반영 중...');
+    const oldDates=getPeriodTaskDates(originalTask, curDate);
+    for(const date of oldDates){
+      const dayData=await fetchDay(date);
+      dayData.tasks=(dayData.tasks||[]).filter(t=>t.periodTaskId!==originalTask.periodTaskId);
+      await saveDay(date,dayData);
+      if(date===curDate) cacheSet('day_'+date, dayData);
+    }
+
+    const targetDay=await fetchDay(targetDate);
+    targetDay.tasks=targetDay.tasks||[];
+    targetDay.tasks.push({...task,carriedFrom:undefined});
+    await saveDay(targetDate,targetDay);
+    if(targetDate===curDate) cacheSet('day_'+targetDate, targetDay);
+
+    hideLoading();
+    editingIdx=-1;
+    if(targetDate!==curDate){
+      toast(`기간업무를 일반업무로 변경하고 ${targetDate}로 이동했어요`);
+      curDate=targetDate;
+      await loadDay(curDate);
+    }else{
+      await loadDay(curDate);
+      toast('기간업무를 일반업무로 변경했어요');
+    }
+    return;
+  }
+
+  // 기존 기간업무 유지 -> 시리즈 전체 동기화
+  if(originalTask.isPeriodTask && editType==='period'){
+    showLoading('기간업무 수정 반영 중...');
+    const syncResult=await syncPeriodTaskSeries(originalTask, task, targetDate);
+    hideLoading();
+    editingIdx=-1;
+    curDate=targetDate;
+    await loadDay(curDate);
+    if(syncResult.removed>0){
+      toast(`수정됐어요 · 종료일 이후 ${syncResult.removed}건이 정리됐어요`);
+    }else if(syncResult.added>0){
+      toast(`수정됐어요 · 기간업무 ${syncResult.added}일이 추가 생성됐어요`);
+    }else{
+      toast('수정됐어요');
+    }
+    return;
   }
 
   let addedRangeCount=0;
@@ -2257,8 +2411,12 @@ async function renderCalendar(){
   const avgRate=daysWithData.length?Math.round(daysWithData.reduce((a,b)=>a+Math.round((b.summary.done/b.summary.total)*100),0)/daysWithData.length):0;
   const totalT=daysWithData.reduce((a,b)=>a+b.summary.total,0);
   const totalD=daysWithData.reduce((a,b)=>a+b.summary.done,0);
-  const best=daysWithData.reduce((bst,d)=>{const r=Math.round(d.summary.done/d.summary.total*100);return(!bst||r>bst.rate)?{...d,rate:r}:bst;},null);
-  const bestDate=best?Object.entries(calData).find(([k,v])=>v===best)?.[0]:'';
+  const best=Object.entries(calData).reduce((bst,[date,d])=>{
+    if(!d.summary||!d.summary.total) return bst;
+    const r=Math.round(d.summary.done/d.summary.total*100);
+    return (!bst||r>bst.rate)?{date,rate:r,...d}:bst;
+  },null);
+  const bestDate=best?best.date:'';
 
   document.getElementById('cal-summary').innerHTML=`
     <div class="cal-sum-card"><div class="cal-sum-lbl">월 평균 달성률</div><div class="cal-sum-val">${avgRate}%</div><div class="cal-sum-sub">${daysWithData.length}일 기록됨</div></div>
@@ -3944,7 +4102,7 @@ async function buildExcelWorkbook(dayDatas,userName,dates,opts){
       data(r.getCell(1),'이번 주 회의록이 없어요',{fg:'9E9890',align:'center'});
     }
   }
-
+  
   // ══════════════════════════════
   // 시트3: 이월 업무
   // ══════════════════════════════
@@ -5239,9 +5397,9 @@ async function adminDownloadAll(){
   // ── 시트1: 전체 팀 요약 ──
   const ws1=wb.addWorksheet('전체 팀 요약');
   ws1.views=[{showGridLines:false}];
-  ws1.columns=[{width:30},{width:9},{width:9},{width:9},{width:10},{width:16},{width:16}];
+  ws1.columns=[{width:30},{width:9},{width:9},{width:9},{width:10}];
 
-  ws1.mergeCells('A1:G1');
+  ws1.mergeCells('A1:E1');
   const t1=ws1.getCell('A1');
   t1.value='주간업무보고 — 전체 팀 요약';
   t1.font={name:'Malgun Gothic',size:14,bold:true,color:{argb:'FF'+C.headerBg}};
@@ -5249,7 +5407,7 @@ async function adminDownloadAll(){
   t1.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F3EF'}};
   ws1.getRow(1).height=32;
 
-  ws1.mergeCells('A2:G2');
+  ws1.mergeCells('A2:E2');
   const t2=ws1.getCell('A2');
   t2.value=`기간: ${from} ~ ${to}   /   생성일: ${todayStr()}`;
   t2.font={name:'Malgun Gothic',size:10,color:{argb:'FF8B7355'}};
@@ -5260,7 +5418,7 @@ async function adminDownloadAll(){
   ws1.addRow([]);ws1.getRow(3).height=8;
 
   const sh=ws1.addRow([]);sh.height=22;
-  ['이름','총 업무','완료','미완료','달성률','마지막 기록','마지막 접속'].forEach((h,i)=>{
+  ['이름','총 업무','완료','미완료','달성률'].forEach((h,i)=>{
     hdr(sh.getCell(i+1),h,C.subHeaderBg,C.subHeaderFg,10,true,'center');
   });
 
@@ -5279,8 +5437,6 @@ async function adminDownloadAll(){
     data(r.getCell(3),done,{bg:C.doneBg,fg:C.doneFg,align:'center',bold:true});
     data(r.getCell(4),total-done,{bg:total-done>0?C.undoneBg:bg,fg:total-done>0?C.undoneFg:'2C2825',align:'center'});
     data(r.getCell(5),rate+'%',{bg:rateBg,fg:rateFg,align:'center',bold:true});
-    data(r.getCell(6),u.last_active||'없음',{bg,align:'center'});
-    data(r.getCell(7),u.last_sign_in_at?u.last_sign_in_at.slice(0,10):'없음',{bg,align:'center'});
   });
 
   // 팀 합계
@@ -5291,8 +5447,6 @@ async function adminDownloadAll(){
   hdr(tr.getCell(3),teamDone,C.headerBg,C.headerFg,11,true,'center');
   hdr(tr.getCell(4),teamTotal-teamDone,C.headerBg,C.headerFg,11,true,'center');
   hdr(tr.getCell(5),teamRate+'%',C.headerBg,C.headerFg,12,true,'center');
-  ws1.mergeCells(`F${ws1.rowCount}:G${ws1.rowCount}`);
-  hdr(tr.getCell(6),'',C.headerBg,C.headerFg,10,false,'center');
 
   // ── 사용자별 시트 ──
   for(const u of adminAllData){

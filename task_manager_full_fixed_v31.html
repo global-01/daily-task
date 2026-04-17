@@ -5915,28 +5915,44 @@ async function renderMyEval(){
 } 
   
 // ── 키워드 매칭 함수 (나중에 이 함수만 AI API로 교체하면 됨) ──
+// ── 키워드 매칭 (나중에 AI API로 교체할 함수) ──
 function matchTasksByKeyword(kpiText, taskRows){
-  // KPI 텍스트에서 키워드 추출 (2글자 이상 단어)
-  const stopWords=new Set(['업무','관리','진행','수행','처리','완료','확인','검토','작성','보고','회의','참석','대응','지원','기타','일반','기본','운영','활동','추진','실시','담당','협의','조율','공유','전달','요청','제출','등록','작업','준비','계획']);
-  const keywords=(kpiText||'').replace(/[()[\]{}]/g,' ').split(/\s+/).filter(w=>w.length>=2&&!stopWords.has(w));
-  if(!keywords.length) return [];
+  // 1) 완료된 업무만 대상
+  // 2) KPI 텍스트를 2글자 이상 조각으로 분해 (부분 문자열 포함)
+  // 3) 동일 업무명은 건수로 묶기
 
-  const matched=[];
-  const seen=new Set();
+  // 불용어 제거
+  const stopWords=new Set(['업무','관리','진행','수행','처리','완료','확인','검토','작성','보고','회의','참석','대응','지원','기타','일반','기본','운영','활동','추진','실시','담당','협의','조율','공유','전달','요청','제출','등록','작업','준비','계획','및','의','을','를','이','가','은','는','으로','에서','에게','하여','통해','위해','대한','관련','사항']);
+
+  // KPI 키워드 추출: 공백/특수문자로 분리 후 2글자 이상
+  const rawWords=(kpiText||'').replace(/[\(\)\[\]{}\-_,./·]/g,' ').split(/\s+/).filter(w=>w.length>=2&&!stopWords.has(w));
+
+  // 부분 문자열도 추가 (3글자 이상 단어에서 2글자 슬라이딩)
+  const keywords=new Set(rawWords);
+  rawWords.forEach(w=>{
+    if(w.length>=4){
+      for(let i=0;i<=w.length-2;i++) keywords.add(w.slice(i,i+2));
+    }
+  });
+  const kwList=[...keywords].filter(k=>k.length>=2);
+  if(!kwList.length) return [];
+
+  // 완료 업무만 수집
+  const countMap={}; // {업무명: {count, category, note, dates}}
   (taskRows||[]).forEach(row=>{
     (row.data?.tasks||[]).forEach(t=>{
+      if(!t.done) return; // 완료된 것만
       const taskText=`${t.category||''} ${t.name||''} ${t.note||''}`.toLowerCase();
-      const hit=keywords.some(kw=>taskText.includes(kw.toLowerCase()));
-      if(hit){
-        const key=`${row.date}_${t.name}`;
-        if(!seen.has(key)){
-          seen.add(key);
-          matched.push({date:row.date, task:t});
-        }
+      const hit=kwList.some(kw=>taskText.includes(kw.toLowerCase()));
+      if(!hit) return;
+      const key=t.name||'(이름없음)';
+      if(!countMap[key]){
+        countMap[key]={count:0,category:t.category||'',note:t.note||''};
       }
+      countMap[key].count++;
     });
   });
-  return matched;
+  return countMap;
 }
 
 async function generateAiDraft(){
@@ -5963,30 +5979,34 @@ async function generateAiDraft(){
 
   if(!taskRows?.length){toast('해당 월에 작성된 업무일지가 없어요');return;}
 
-  // KPI별 키워드 매칭
+  // KPI별 매칭 및 textarea 채우기
   let anyMatched=false;
   kpiItems.forEach(kpi=>{
     const kpiText=`${kpi.task_name||''} ${kpi.kpi_content||''}`;
-    const matched=matchTasksByKeyword(kpiText, taskRows);
-
+    const countMap=matchTasksByKeyword(kpiText, taskRows);
     const contentEl=document.getElementById(`kpi-content-${kpi.id}`);
     if(!contentEl) return;
+    if(Object.keys(countMap).length===0) return;
 
-    if(matched.length){
-      anyMatched=true;
-      // 매칭된 업무 목록을 텍스트로 정리
-      const lines=matched.map(m=>`[${m.date}] ${m.task.category?`[${m.task.category}] `:''}${m.task.name}${m.task.done?' (완료)':' (미완료)'}${m.task.note?` - ${m.task.note}`:''}`);
-      // 기존 내용이 없을 때만 자동 채움
-      if(!contentEl.value.trim()){
-        contentEl.value=lines.join('\n');
-      }
-    }
+    anyMatched=true;
+    // 기존 내용 있으면 덮어쓰지 않음
+    if(contentEl.value.trim()) return;
+
+    // 건수 묶어서 텍스트 생성
+    const lines=Object.entries(countMap)
+      .sort((a,b)=>b[1].count-a[1].count)
+      .map(([name,info])=>{
+        const cat=info.category?`[${info.category}] `:'';
+        const cnt=info.count>1?` (${info.count}건)`:'';
+        return `${cat}${name}${cnt}`;
+      });
+    contentEl.value=lines.join('\n');
   });
 
   if(anyMatched){
-    toast('✅ 관련 업무가 자동으로 매칭됐어요! 내용을 검토해 주세요');
+    toast('✅ 완료 업무가 자동 매칭됐어요! 내용을 검토하고 수정해 주세요');
   } else {
-    toast('⚠️ 매칭된 업무가 없어요. KPI 키워드와 업무일지 내용을 확인해 주세요');
+    toast('⚠️ 매칭된 완료 업무가 없어요. 직접 입력해 주세요');
   }
 }
 

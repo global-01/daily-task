@@ -1387,7 +1387,7 @@ async function signInWithEmail(){
     history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');
     isAdmin=await checkAdmin();
     if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-    if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='flex';}
+    if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';}
     await loadDay(curDate);showView('today',{push:false});await loadCategories();recurringCache=null;injectRecurringTasks();
   }catch(e){errEl.textContent='오류가 발생했어요: '+e.message;errEl.style.display='block';}
 }
@@ -1416,7 +1416,7 @@ async function signUpWithEmail(){
       currentSession={...data,user};localStorage.setItem('sb_session',JSON.stringify(currentSession));
       showMainApp();try{sessionStorage.setItem('lastView','today');}catch{} history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');isAdmin=await checkAdmin();
       if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-      if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='flex';}
+      if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';}
       await loadDay(curDate);showView('today',{push:false});await loadCategories();recurringCache=null;injectRecurringTasks();
     } else {
       errEl.style.color='var(--green)';

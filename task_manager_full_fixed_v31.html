@@ -6121,6 +6121,18 @@ function removeKpiRow(i){
   kpiRows.splice(i,1);
   renderKpiRows();
 }
+  function addKpiRow(){
+  kpiRows=kpiRows.map((row,i)=>({
+    ...row,
+    task_name:document.getElementById(`krow-task-${i}`)?.value||row.task_name,
+    kpi_content:document.getElementById(`krow-kpi-${i}`)?.value||row.kpi_content,
+    measure_method:document.getElementById(`krow-method-${i}`)?.value||row.measure_method,
+    eval_type:document.getElementById(`krow-type-${i}`)?.value||row.eval_type,
+    weight:parseFloat((parseInt(document.getElementById(`krow-weight-${i}`)?.value||0)/100).toFixed(2)),
+  }));
+  kpiRows.push({task_name:'',kpi_content:'',measure_method:'',eval_type:'정량평가',weight:0.1,sort_order:kpiRows.length});
+  renderKpiRows();
+}
 
 async function copyPrevMonthKpi(){
   const uid=document.getElementById('kpi-target-user')?.value;

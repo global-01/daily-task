@@ -5956,8 +5956,16 @@ async function generateAiDraft(){
 });
 const data=await res.json();
 const text=(data.text||'').replace(/```json|```/g,'').trim();
-const parsed=JSON.parse(text);
-
+let parsed;
+try{
+  parsed=JSON.parse(text);
+}catch(e){
+  // JSON 파싱 실패 시 텍스트에서 JSON 부분만 추출 시도
+  const match=text.match(/\{[\s\S]*\}/);
+  if(match)parsed=JSON.parse(match[0]);
+  else{toast('AI 응답 파싱 실패. 다시 시도해 주세요');hideLoading();return;}
+}
+    
     // KPI ID 매핑해서 textarea에 채우기
     (parsed.items||[]).forEach((item,idx)=>{
       const kpi=kpiItems[idx];

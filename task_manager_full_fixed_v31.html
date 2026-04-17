@@ -5907,12 +5907,6 @@ async function renderMyEval(){
   }
 
   el.innerHTML=html;
-// 저장된 내용이 없으면 자동으로 AI 초안 생성
-const hasContent=Object.keys(achievementFinal).some(k=>achievementFinal[k]?.content);
-const hasDraft=Object.keys(achievementDraft).some(k=>achievementDraft[k]?.content);
-if(!isFinalized && !hasContent && !hasDraft){
-  generateAiDraft();
-}
 
 async function generateAiDraft(){
   const{year,month}=getEvalYearMonth();

@@ -5946,19 +5946,14 @@ async function generateAiDraft(){
   const prompt=`다음은 ${year}년 ${month}월의 업무일지입니다:\n${dailyText}\n\n다음 KPI 항목별로 업무일지에서 관련 내용을 추출해서 요약해주세요:\n${kpiList}\n\n각 KPI별로 수행한 업무 내용을 2-4문장으로 요약하고, 달성도 점수(0-100)를 제안해주세요.\n반드시 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n{"items":[{"id":"KPI_ID","content":"수행내용 요약","achievement":점수},...]}\nKPI_ID는 제공된 순서대로 1,2,3... 숫자로 사용하세요.`;
 
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await res.json();
-    const text=(data.content||[]).map(c=>c.text||'').join('');
-    const clean=text.replace(/```json|```/g,'').trim();
-    const parsed=JSON.parse(clean);
+    const res=await fetch(`${SB_URL}/functions/v1/generate-eval-draft`,{
+  method:'POST',
+  headers:{...getSBHeaders(),'Content-Type':'application/json'},
+  body:JSON.stringify({prompt})
+});
+const data=await res.json();
+const text=(data.text||'').replace(/```json|```/g,'').trim();
+const parsed=JSON.parse(text);
 
     // KPI ID 매핑해서 textarea에 채우기
     (parsed.items||[]).forEach((item,idx)=>{

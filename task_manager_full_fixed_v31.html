@@ -671,8 +671,8 @@
       <button class="sb-item" onclick="showView('stats')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-stats"></use></svg></span>통계</button>
       <button class="sb-item" onclick="showView('recurring')"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-repeat"></use></svg></span>반복업무</button>
       <button class="sb-item adm" id="admin-nav-btn" onclick="showView('admin')" style="display:none;"><span class="sb-ic"><svg viewBox="0 0 24 24"><use href="#ic-admin"></use></svg></span>관리자</button>
+      <button class="sb-item" id="eval-nav-btn" onclick="showView('evaluation')" style="display:none;"><span class="sb-ic"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></svg></span>월간평가</button>
       <button class="sb-item" id="perf-nav-btn" onclick="showView('performance')" style="display:none;"><span class="sb-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>성과관리</button>
-<button class="sb-item" id="eval-nav-btn" onclick="showView('evaluation')" style="display:none;"><span class="sb-ic"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></svg></span>월간평가</button>
     </nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -1432,7 +1432,7 @@ async function signInWithEmail(){
     history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');
     isAdmin=await checkAdmin();
     if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-    if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';}
+    const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';
     await loadDay(curDate);showView('today',{push:false});await loadCategories();recurringCache=null;injectRecurringTasks();
   }catch(e){errEl.textContent='오류가 발생했어요: '+e.message;errEl.style.display='block';}
 }
@@ -1461,7 +1461,7 @@ async function signUpWithEmail(){
       currentSession={...data,user};localStorage.setItem('sb_session',JSON.stringify(currentSession));
       showMainApp();try{sessionStorage.setItem('lastView','today');}catch{} history.replaceState({view:'today'}, '', location.pathname+location.search+'#today');isAdmin=await checkAdmin();
       if(isAdmin){const adminBtn=document.getElementById('admin-nav-btn');if(adminBtn)adminBtn.style.display='flex';}
-      if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';}
+      const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';
       await loadDay(curDate);showView('today',{push:false});await loadCategories();recurringCache=null;injectRecurringTasks();
     } else {
       errEl.style.color='var(--green)';
@@ -1860,7 +1860,7 @@ async function init(){
     const adminBtn=document.getElementById('admin-nav-btn');
     if(adminBtn)adminBtn.style.display='inline-flex';
   }
-  if(isAdmin){const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';}
+  const perfBtn=document.getElementById('perf-nav-btn');if(perfBtn)perfBtn.style.display='inline-flex';const evalBtn=document.getElementById('eval-nav-btn');if(evalBtn)evalBtn.style.display='inline-flex';
   
   // 새로고침 시 현재 화면 유지
   const validViews=['today','calendar','history','stats','recurring','admin'];
@@ -6438,4 +6438,3 @@ document.addEventListener('keydown',e=>{
 </script>
 </body>
 </html>
-

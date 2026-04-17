@@ -1138,8 +1138,12 @@
           <div id="teams-list" style="margin-bottom:20px;"></div>
           <!-- 관리자 관리 -->
           <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;padding-top:16px;border-top:1px solid var(--border);">관리자 이메일 추가/삭제</div>
-          <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <input id="admin-add-email" class="add-input" placeholder="추가할 이메일 주소" style="flex:1;">
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <input id="admin-add-email" class="add-input" placeholder="추가할 이메일 주소" style="flex:1;min-width:180px;">
+            <select id="admin-add-role" style="border:1px solid var(--border2);border-radius:var(--r2);padding:7px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);outline:none;cursor:pointer;">
+              <option value="team">팀 관리자</option>
+              <option value="super">슈퍼 관리자</option>
+            </select>
             <button onclick="addAdmin()" class="add-btn">+ 추가</button>
           </div>
           <div id="admin-list"></div>
@@ -5730,17 +5734,18 @@ async function updateAdminPart(adminId, selectEl){
 
 async function addAdmin(){
   const email=document.getElementById('admin-add-email').value.trim();
+  const role=document.getElementById('admin-add-role')?.value||'team';
   if(!email||!email.includes('@')){toast('올바른 이메일을 입력해 주세요');return;}
   try{
     const res=await fetch(`${SB_URL}/rest/v1/admins`,{
       method:'POST',
       headers:{...getSBHeaders(),'Prefer':'return=minimal'},
-      body:JSON.stringify({email,role:'team',assigned_part:''})
+      body:JSON.stringify({email,role,assigned_part:''})
     });
     if(res.status===200||res.status===201||res.status===204){
       document.getElementById('admin-add-email').value='';
       loadAdminList();
-      toast(`✅ ${email} 관리자로 추가됐어요`);
+      toast(`✅ ${email} ${role==='super'?'슈퍼 관리자':'팀 관리자'}로 추가됐어요`);
     } else {
       toast('추가 실패. 이미 등록된 이메일일 수 있어요');
     }
@@ -6046,12 +6051,13 @@ async function renderKpiTemplate(){
   // 직원 목록 로드
   const userSel=document.getElementById('kpi-target-user');
   if(userSel&&userSel.options.length<=1){
-    const profRes=await fetchWithAuth(`${SB_URL}/rest/v1/user_profiles?select=user_id,name&order=name.asc`);
+    const profRes=await fetchWithAuth(`${SB_URL}/rest/v1/user_profiles?select=user_id,name,team&order=name.asc`);
     const profs=await profRes.json();
     (profs||[]).forEach(p=>{
-      if(p.user_id===currentSession?.user?.id)return; // 본인 제외 안 함 (팀장도 포함)
+      // 슈퍼어드민은 전체, 팀어드민은 본인 팀만
+      if(!isSuperAdmin() && adminAssignedTeam && p.team!==adminAssignedTeam) return;
       userSel.innerHTML+=`<option value="${p.user_id}">${esc(p.name||p.user_id)}</option>`;
-    });
+     });
   }
 
   await loadKpiTemplate();
@@ -6353,10 +6359,10 @@ function showView(v, opts={}){
   if(v==='admin')loadAdminData();
   if(v==='evaluation'){
   initEvalYearMonth();
-  if(isAdmin){
-    document.getElementById('eval-kpi-tab-btn').style.display='inline-flex';
-    document.getElementById('eval-confirm-tab-btn').style.display='inline-flex';
-  }
+  const kpiBtn=document.getElementById('eval-kpi-tab-btn');
+  const confirmBtn=document.getElementById('eval-confirm-tab-btn');
+  if(kpiBtn)kpiBtn.style.display=isAdmin?'inline-flex':'none';
+  if(confirmBtn)confirmBtn.style.display=isAdmin?'inline-flex':'none';
   renderMyEval();
 }
   if(v==='stats'){

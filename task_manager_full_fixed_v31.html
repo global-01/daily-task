@@ -5948,7 +5948,10 @@ async function generateAiDraft(){
   try{
     const res=await fetch(`${SB_URL}/functions/v1/generate-eval-draft`,{
   method:'POST',
-  headers:{...getSBHeaders(),'Content-Type':'application/json'},
+  headers:{
+  'Content-Type':'application/json',
+  'Authorization':'Bearer '+SB_KEY
+},
   body:JSON.stringify({prompt})
 });
 const data=await res.json();
